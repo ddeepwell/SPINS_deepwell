@@ -22,3 +22,8 @@ zgrid*
 # Any vim swap files
 *.swp
 
+# exclude the supporting UMFPACK/UFconfig/AMD libraries
+
+/UMFPACK
+/UFconfig
+/AMD
