@@ -105,6 +105,31 @@ Array<double,3> overturning_2d(
 }
 
 
+// Read in a 2D-array from file and extend it to fill a full, 3D array in
+// memory.  Unlike the following function, this uses the standard C storage
+// order -- matlab uses the transpose of column-major ordering
+void read_2d_restart(Array<double,3> & fillme, const char * filename, 
+                  int Nx, int Ny) {
+
+//   using blitz::ColumnMajorArray;
+   using blitz::firstDim; using blitz::secondDim; using blitz::thirdDim;
+   /* Get the local ranges we're interested in */
+   blitz::Range xrange(fillme.lbound(firstDim),fillme.ubound(firstDim));
+   blitz::Range zrange(fillme.lbound(thirdDim),fillme.ubound(thirdDim));
+   
+   /* Read the 2D slice from disk.  Matlab uses Column-Major array storage */
+
+   blitz::GeneralArrayStorage<2> storage_order;
+   blitz::Array<double,2> * sliced = 
+      read_2d_slice<double>(filename,Nx,Ny,xrange,zrange,storage_order);
+
+   /* Now, assign the slice to fill the 3D array */
+   for(int y = fillme.lbound(secondDim); y <= fillme.ubound(secondDim); y++) {
+      fillme(xrange,y,zrange) = (*sliced)(xrange,zrange);
+   }
+   delete sliced; 
+}
+
 // Read in a 2D file and interpret it as a 2D slice of a 3D array, for
 // initialization with read-in-data from a program like MATLAB
 void read_2d_slice(Array<double,3> & fillme, const char * filename, 

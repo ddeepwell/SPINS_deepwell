@@ -21,6 +21,9 @@ blitz::Array<double,3> overturning_2d(blitz::Array<double,3> const & rho,
 void read_2d_slice(blitz::Array<double,3> & fillme, const char * filename, 
                   int Nx, int Ny);
 
+void read_2d_restart(blitz::Array<double,3>& fillme, const char* filename,
+                  int Nx, int Ny);
+
 /* Compute vorticity */
 void vorticity(TArrayn::DTArray & u, TArrayn::DTArray & v, 
       TArrayn::DTArray & w, TArrayn::DTArray * & w_x, TArrayn::DTArray * & w_y,
