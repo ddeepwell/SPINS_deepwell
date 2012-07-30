@@ -1,0 +1,24 @@
+# This file contains a list of things to *not* add to the git repository
+
+# Object files
+*.o
+
+# Executable files
+*_x
+*.x
+
+# Default output files, in case a case gets run in the main directory
+
+# Grids
+xgrid*
+ygrid*
+zgrid*
+# Matlab reader files
+*reader.m
+# Numbered output files
+*.[0-9]*
+
+
+# Any vim swap files
+*.swp
+
