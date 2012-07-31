@@ -27,3 +27,13 @@ zgrid*
 /UMFPACK
 /UFconfig
 /AMD
+
+# Also exclude blitz and fftw, if these are local to the build
+
+/blitz
+/fftw*
+
+# And any tarballs
+.tgz
+.tar.gz
+.tar
