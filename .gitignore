@@ -22,6 +22,9 @@ zgrid*
 # Any vim swap files
 *.swp
 
+# and Matlab temporaries
+*.m~
+
 # exclude the supporting UMFPACK/UFconfig/AMD libraries
 
 /UMFPACK
@@ -37,3 +40,8 @@ zgrid*
 .tgz
 .tar.gz
 .tar
+
+# temporaries
+
+*tmp/*
+*tmp
