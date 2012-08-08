@@ -32,6 +32,7 @@ cat > ../src/system.mk << EOF
 CC:=$CC
 CXX:=$CXX
 LD:=$LD
+MPICXX:=$MPICXX
 
 # Compiler flags
 SYSTEM_CFLAGS:=$SYSTEM_CFLAGS

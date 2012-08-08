@@ -2,12 +2,13 @@
 
 # System-specific settings for the orca.sharcnet.ca cluster
 
-CC=mpicc
-CXX=mpic++
+CC=icc
+CXX=icc
 LD=mpic++
 
 # System-specific compiler flags
-SYSTEM_CFLAGS="-Wall -wd981 -wd444 -wd1572 -wd383 -wd869"
+SYSTEM_CFLAGS=
+
 SYSTEM_LDFLAGS=
 
 # Compiler flags for debugging
@@ -25,14 +26,15 @@ EXTRA_OPTIM_LDFLAGS=
 # Library names/locations/flags for MPI-compilation.  This will
 # probably not be necessary on systems with a working mpicc
 # alias
+MPICXX=mpic++
 MPI_CFLAGS=
-MPI_LIB=-lmpi
+MPI_LIB=
 MPI_LIBDIR=
 MPI_INCDIR=
 
 # Library names/locations for LAPACK
 LAPACK_LIB="-llapack"
-LAPACK_LIBDIR=
+LAPACK_LIBDIR=-L`dirname $(find /opt/sharcnet/intel/11* -name 'libmkl_core.a' | head -1)`
 LAPACK_INCDIR=
 
 # Library locations for blitz; leave blank to use system-installed
@@ -41,8 +43,8 @@ BLITZ_LIBDIR=
 BLITZ_INCDIR=
 
 # Library locations for fftw
-FFTW_LIBDIR=
-FFTW_INCDIR=
+FFTW_LIBDIR=-L`dirname $(find /opt/sharcnet/fftw* -name 'libfftw3.a' | grep intel | head -1)`
+FFTW_INCDIR=-I`dirname $(find /opt/sharcnet/fftw* -name "fftw3.h" | grep intel | head -1)`
 
 # Library locations for UMFPACK
 UMF_INCDIR=

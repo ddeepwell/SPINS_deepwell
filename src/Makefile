@@ -14,6 +14,12 @@ OPTIM?=true
 # longer for compilation
 SLOW_OPTIM?=false
 
+# If MPICXX isn't separately defined, then set it to be the same
+# as CXX
+ifeq ($(strip $(MPICXX)),)
+   MPICXX:=$(CXX)
+endif
+
 # Assemble the CFLAGS
 CFLAGS:=$(SYSTEM_CFLAGS)
 LDFLAGS:=$(SYSTEM_LDFLAGS)
@@ -49,13 +55,13 @@ objfiles: $(shell ls *.cpp | sed -e 's/cpp/o/g')
 NSIntegrator.o: NSIntegrator.cpp NSIntegrator_impl.cc
 
 tests/test%.o: tests/tests%.cpp
-	$(CXX) $(CFLAGS) -o $@ -c $<
+	$(MPICXX) $(CFLAGS) -o $@ -c $<
 
 tests/test%_x: tests/test%.o TArray.o Parformer.o T_util.o  ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) 
 
 cases/%.o: cases/%.cpp NSIntegrator_impl.cc NSIntegrator.hpp
-	$(CXX) $(CFLAGS) -o $@ -c  $<
+	$(MPICXX) $(CFLAGS) -o $@ -c  $<
 
 
 nonhydro_x: nonhydro_sw.o TArray.o T_util.o Parformer.o Splits.o Par_util.o Split_reader.o 
@@ -71,5 +77,5 @@ cases/%_x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegr
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 %.o : %.cpp	*.hpp
-	$(CXX) $(CFLAGS) -o $@ -c $< 
+	$(MPICXX) $(CFLAGS) -o $@ -c $< 
 

@@ -132,14 +132,14 @@ else
 	pushd AMD
 	(make > /dev/null) || (echo "Could not make AMD"; exit 1)
 	cp Include/* ../include/
-	cp Lib/* ../lib
+	cp Lib/*.a ../lib
 	popd
 
 	pushd UMFPACK
 	echo "Building UMFPACK"
 	(make library > /dev/null) || (echo "Could not make UMFPACK"; exit 1);
 	cp Include/* ../include
-	cp Lib/* ../lib
+	cp Lib/*.a ../lib
 	popd
 
    cp UFconfig/UFconfig.h ./include/
