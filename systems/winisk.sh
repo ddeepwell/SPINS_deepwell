@@ -16,7 +16,7 @@ DEBUG_CFLAGS="-g -DBZ_DEBUG"
 DEBUG_LDFLAGS=
 
 # Compiler flags for optimization
-OPTIM_CFLAGS="-O3 -fpmodel fast=2"
+OPTIM_CFLAGS="-O3 -fp-model fast=2"
 OPTIM_LDFLAGS=
 
 # Compiler flags for extra optimization, such as -ip -ipo on icc

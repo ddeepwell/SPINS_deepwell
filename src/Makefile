@@ -7,12 +7,12 @@ include system.mk
 
 
 # Compile with debugging flags
-DEBUG=true
+DEBUG?=false
 # Compile with optimizations
-OPTIM=true
+OPTIM?=true
 # Compile with extra optimizations that may require significantly
 # longer for compilation
-SLOW_OPTIM=true
+SLOW_OPTIM?=false
 
 # Assemble the CFLAGS
 CFLAGS:=$(SYSTEM_CFLAGS)
@@ -33,7 +33,7 @@ endif
 INCLUDE_DIRS := $(MPI_INCDIR) $(LAPACK_INCDIR) $(BLITZ_INCDIR) $(FFTW_INCDIR) $(UMF_INCDIR) -I../include
 CFLAGS := $(CFLAGS) $(INCLUDE_DIRS)
 
-LIB_DIRS := $(MPI_LIBDIR) $(LAPACK_LIBDIR) $(BLITZ_LIBDIR) $(FFTW_LIBDIR) $(UMF_LIBDIR) -I../lib
+LIB_DIRS := $(MPI_LIBDIR) $(LAPACK_LIBDIR) $(BLITZ_LIBDIR) $(FFTW_LIBDIR) $(UMF_LIBDIR) -L../lib
 LDLIBS := $(MPI_LIB) $(LAPACK_LIB) -lfftw3 -lblitz -lm -lstdc++ -lumfpack -lamd
 LDFLAGS := $(LDFLAGS) $(LIB_DIRS) 
 

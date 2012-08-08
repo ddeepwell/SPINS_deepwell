@@ -116,11 +116,14 @@ else
 	# makefile by hand (that controls the others).
 
 	pushd UFconfig
+   # Note, this sed uses unusual syntax because the typical separator character
+   # inside s -- / -- is also used as a path separator.  Hence, this command
+   # uses # instead.
 	cat UFconfig.mk | sed \
-	   -e "s/^CC.*/CC = ${CC}/" \
- 	   -e "s/^CPLUSPLUS.*/CPLUSPLUS = ${CXX}/" \
-	   -e "s/^BLAS.*/BLAS = ${BLAS_INCDIR} ${BLAS_LIBDIR} ${BLAS_LIB}/" \
-	   -e "s/^LAPACK.*/LAPACK = ${LAPACK_INCDIR} ${LAPACK_LIBDIR} ${LAPACK_LIB}/" \
+	   -e "s#^CC.*#CC = ${CC}#" \
+ 	   -e "s#^CPLUSPLUS.*#CPLUSPLUS = ${CXX}#" \
+	   -e "s#^BLAS.*#BLAS = ${BLAS_INCDIR} ${BLAS_LIBDIR} ${BLAS_LIB}#" \
+	   -e "s#^LAPACK.*#LAPACK = ${LAPACK_INCDIR} ${LAPACK_LIBDIR} ${LAPACK_LIB}#" \
 	   > UFconfig.new
 	mv UFconfig.new UFconfig.mk
 	popd
