@@ -30,6 +30,8 @@ zgrid*
 /UMFPACK
 /UFconfig
 /AMD
+/include
+/lib
 
 # Also exclude blitz and fftw, if these are local to the build
 
@@ -37,11 +39,14 @@ zgrid*
 /fftw*
 
 # And any tarballs
-.tgz
-.tar.gz
-.tar
+*.tgz
+*.tar.gz
+*.tar
 
 # temporaries
 
 *tmp/*
 *tmp
+
+# Exclude the system-specific make file
+src/system.mk

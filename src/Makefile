@@ -1,26 +1,41 @@
-CC = mpicc
-CXX = mpicc
-LD = mpicc
-# -ip -ipo seem to give about 10% better speed, but they also double compile
-# times.  For now, disable them.
-BLITZ_DEBUG =   -g   -DBZ_DEBUG #-ftrapuv -check-uninit
-SLOW_OPTIM =   -O3 -ffast-math  #-ip -ipo 
-# Compile with all warnings, but disable some remarks.  Notably:
-# 1572-- "unreliable" == comparison of floating points
-# 981 -- unspecified order of evaluation of operands
-# 444 -- destructor is not virtual
-# 383 -- value copied to temporary, reference to temporary used
-# 869 -- parameter not referenced
-INCLUDE_DIRS = -I../UMFPACK/Include -I../AMD/Include  -I../UFconfig
-CFLAGS =  $(INCLUDE_DIRS) $(BLITZ_DEBUG) $(SLOW_OPTIM) #-Wall -wd981 -wd444 -wd1572 -wd383 -wd869
-# disabling notifications for
-# 11000 - performing multi-file optimizations
-# 11005 - generating object file <temporary name>.o
-LIB_DIRS = -L../UMFPACK/Lib -L../AMD/Lib #-L/opt/scsl/lib
-LAPACK_LIB = -llapack
-UMFPACK_LIB = -lumfpack -lamd
-LDFLAGS =  $(SLOW_OPTIM)  #-wd11000,11005
-LDLIBS = $(LIB_DIRS) -lfftw3 -lblitz -lm -lstdc++ -lmpi $(LAPACK_LIB) $(UMFPACK_LIB)
+# Makefile to build SPINS, generalized for multiple systemd
+
+# The "system.mk" file in the current directory will contain
+# system-specific make variables, most notably the
+# C/C++ compiler/linker, 
+include system.mk
+
+
+# Compile with debugging flags
+DEBUG=true
+# Compile with optimizations
+OPTIM=true
+# Compile with extra optimizations that may require significantly
+# longer for compilation
+SLOW_OPTIM=true
+
+# Assemble the CFLAGS
+CFLAGS:=$(SYSTEM_CFLAGS)
+LDFLAGS:=$(SYSTEM_LDFLAGS)
+ifeq ($(DEBUG),true)
+   CFLAGS:=$(CFLAGS) $(DEBUG_CFLAGS)
+   LDFLAGS:=$(LDFLAGS) $(DEBUG_LDFLAGS)
+endif
+ifeq ($(OPTIM),true)
+   CFLAGS:=$(CFLAGS) $(OPTIM_CFLAGS)
+   LDFLAGS:=$(LDFLAGS) $(OPTIM_LDFLAGS)
+   ifeq ($(SLOW_OPTIM),true)
+      CFLAGS:=$(CFLAGS) $(EXTRA_OPTIM_CFLAGS)
+      LDFLAGS:=$(LDFLAGS) $(EXTRA_OPTIM_LDFLAGS)
+   endif
+endif
+
+INCLUDE_DIRS := $(MPI_INCDIR) $(LAPACK_INCDIR) $(BLITZ_INCDIR) $(FFTW_INCDIR) $(UMF_INCDIR) -I../include
+CFLAGS := $(CFLAGS) $(INCLUDE_DIRS)
+
+LIB_DIRS := $(MPI_LIBDIR) $(LAPACK_LIBDIR) $(BLITZ_LIBDIR) $(FFTW_LIBDIR) $(UMF_LIBDIR) -I../lib
+LDLIBS := $(MPI_LIB) $(LAPACK_LIB) -lfftw3 -lblitz -lm -lstdc++ -lumfpack -lamd
+LDFLAGS := $(LDFLAGS) $(LIB_DIRS) 
 
 .PHONY: all 
 all: tests/test_deriv_x tests/test_write_x tests/test_esolve_x tests/test_heat_x tests/test_ode_x tests/test_ns_x

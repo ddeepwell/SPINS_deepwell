@@ -9,12 +9,12 @@
 # This is a C++ "meta-template library" for arrays that allows
 # manipulation of multidimensional arrays in C++ code with a
 # MATLAB-like syntax
-BUILD_BLITZ=yes 
+BUILD_BLITZ=no 
 
 # fftw -- www.fftw.org
 # This is a self-contained library for high-performance Fast
 # Fourier Transforms
-BUILD_FFTW=yes
+BUILD_FFTW=no
 
 # UMFPACK -- www.cise.ufl.edu/research/sparse/umfpack
 # AMD     -- www.cise.ufl.edu/research/sparse/amd/
@@ -26,25 +26,24 @@ BUILD_FFTW=yes
 
 BUILD_UMFPACK=yes
 
-# Some system configuration here will be necessary, since this
-# script does not know your system's layout.  Needed:
+# Read in the appropriate system script.  If none is specified on the
+# command line, guess based on the hostname
 
-# C-compiler
-CC=gcc
-
-# C++ compiler
-CXX=g++
-
-# Linker
-LD=ld
-
-# Flags to link to BLAS
-BLAS_LIB=-lblas
-BLAS_DIR=
-
-# Flags to link to LAPACK
-LAPACK_LIB=-llapack
-LAPACK_DIR=
+if [ $# -gt 0 ]; then
+   if [ -f $1 ]; then
+      echo Reading system-specific variables from $1
+      source $1
+   elif [ -f systems/$1.sh ]; then
+      echo Reading system-specific variables from systems/$1.sh
+      source systems/$1.sh
+   else 
+      echo Neither $1 nor /systems/$1.sh are found!
+      exit 1
+   fi
+else
+   echo Guessing that system-specific variables are in systems/`hostname -s`.sh
+   source systems/`hostname -s`.sh || (echo "... but they're not"; exit 1)
+fi
 
 # Current working directory
 CWD=`pwd`
@@ -120,8 +119,8 @@ else
 	cat UFconfig.mk | sed \
 	   -e "s/^CC.*/CC = ${CC}/" \
  	   -e "s/^CPLUSPLUS.*/CPLUSPLUS = ${CXX}/" \
-	   -e "s/^BLAS.*/BLAS = ${BLAS_DIR} ${BLAS_LIB}/" \
-	   -e "s/^LAPACK.*/LAPACK = ${LAPACK_DIR} ${LAPACK_LIB}/" \
+	   -e "s/^BLAS.*/BLAS = ${BLAS_INCDIR} ${BLAS_LIBDIR} ${BLAS_LIB}/" \
+	   -e "s/^LAPACK.*/LAPACK = ${LAPACK_INCDIR} ${LAPACK_LIBDIR} ${LAPACK_LIB}/" \
 	   > UFconfig.new
 	mv UFconfig.new UFconfig.mk
 	popd
@@ -139,6 +138,8 @@ else
 	cp Include/* ../include
 	cp Lib/* ../lib
 	popd
+
+   cp UFconfig/UFconfig.h ./include/
 	echo "Done!"
 fi
 
