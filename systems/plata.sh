@@ -2,21 +2,23 @@
 
 # System-specific settings for belize.math.uwaterloo.ca
 
-CC=mpicc
-CXX=mpic++
+CC=gcc
+CXX=gicc
 LD=mpic++
 
+MPICXX=mpic++
+
 # System-specific compiler flags
-SYSTEM_CFLAGS=
-SYSTEM_LDFLAGS=
+SYSTEM_CFLAGS="-m64"
 SYSTEM_CXXFLAGS="-Wno-deprecated"
+SYSTEM_LDFLAGS=-m64
 
 # Compiler flags for debugging
 DEBUG_CFLAGS="-g -DBZ_DEBUG"
 DEBUG_LDFLAGS=
 
 # Compiler flags for optimization
-OPTIM_CFLAGS="-O3 -ffast-math"
+OPTIM_CFLAGS="-O3 -ffast-math -msse"
 OPTIM_LDFLAGS=
 
 # Compiler flags for extra optimization, such as -ip -ipo on icc
@@ -32,7 +34,7 @@ MPI_LIBDIR=
 MPI_INCDIR=
 
 # Library names/locations for LAPACK
-LAPACK_LIB="-llapack"
+LAPACK_LIB="-framework Accelerate"
 LAPACK_LIBDIR=
 LAPACK_INCDIR=
 
@@ -50,7 +52,7 @@ UMF_INCDIR=
 UMF_LIBDIR=
 
 # Location/library for BLAS
-BLAS_LIB="-lblas"
+BLAS_LIB="-framework Accelerate"
 BLAS_LIBDIR=
 BLAS_INCDIR=
 

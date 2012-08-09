@@ -120,26 +120,27 @@ else
    # inside s -- / -- is also used as a path separator.  Hence, this command
    # uses # instead.
 	cat UFconfig.mk | sed \
-	   -e "s#^CC.*#CC = ${CC}#" \
- 	   -e "s#^CPLUSPLUS.*#CPLUSPLUS = ${CXX}#" \
-	   -e "s#^BLAS.*#BLAS = ${BLAS_INCDIR} ${BLAS_LIBDIR} ${BLAS_LIB}#" \
-	   -e "s#^LAPACK.*#LAPACK = ${LAPACK_INCDIR} ${LAPACK_LIBDIR} ${LAPACK_LIB}#" \
+      -e "s#^CC.*#CC = ${CC}#" \
+      -e "s#^CPLUSPLUS.*#CPLUSPLUS = ${CXX}#" \
+      -e "s#^CFLAGS.*#CFLAGS = ${SYSTEM_CFLAGS} ${OPTIM_CFLAGS}#" \
+      -e "s#^BLAS.*#BLAS = ${BLAS_INCDIR} ${BLAS_LIBDIR} ${BLAS_LIB}#" \
+      -e "s#^LAPACK.*#LAPACK = ${LAPACK_INCDIR} ${LAPACK_LIBDIR} ${LAPACK_LIB}#" \
 	   > UFconfig.new
 	mv UFconfig.new UFconfig.mk
 	popd
 
 	echo "Building AMD"
 	pushd AMD
-	(make > /dev/null) || (echo "Could not make AMD"; exit 1)
-	cp Include/* ../include/
-	cp Lib/*.a ../lib
+	(make lib > /dev/null) || (echo "Could not make AMD"; exit 1)
+	cp -v Include/* ../include/
+	cp -v Lib/*.a ../lib/
 	popd
 
 	pushd UMFPACK
 	echo "Building UMFPACK"
 	(make library > /dev/null) || (echo "Could not make UMFPACK"; exit 1);
-	cp Include/* ../include
-	cp Lib/*.a ../lib
+	cp -v Include/* ../include/
+	cp -v Lib/*.a ../lib/
 	popd
 
    cp UFconfig/UFconfig.h ./include/
