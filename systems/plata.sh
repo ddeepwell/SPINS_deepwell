@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# System-specific settings for belize.math.uwaterloo.ca
+# System-specific settings for plata.math.uwaterloo.ca
 
 CC=gcc
 CXX=gicc
