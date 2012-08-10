@@ -44,6 +44,8 @@ BLITZ_INCDIR=
 # Library locations for fftw
 FFTW_LIBDIR=
 FFTW_INCDIR=
+# Have to disable SSE2 on itanium machines like winisk/kazan
+FFTW_OPTIONS="--disable-sse2"
 
 # Library locations for UMFPACK
 UMF_INCDIR=

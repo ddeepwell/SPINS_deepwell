@@ -48,6 +48,8 @@ fi
 # Current working directory
 CWD=`pwd`
 
+export CC
+export CFLAGS
 
 # Make, if necessary, the local include and lib directories
 if [ ! -d lib ]; then mkdir lib; fi
@@ -82,7 +84,7 @@ else
 	fi
 	(tar -xzvf fftw-3.3.2.tar.gz > /dev/null) || (echo "Untar of FFTW FAILED"; exit 1)
 	pushd fftw-3.3.2
-	(./configure --prefix="$CWD" --disable-fortran --enable-sse2 > /dev/null) && \
+	(./configure --prefix="$CWD" --disable-fortran --enable-sse2 $FFTW_OPTIONS > /dev/null) && \
 		(make > /dev/null) && \
 		(make install-libLTLIBRARIES > /dev/null) && \
 		pushd api; (make install > /dev/null) && popd \
