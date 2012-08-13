@@ -161,8 +161,8 @@ class benard : public BaseCase {
          return true;
       }
       // Forcing of the perturbation temperature
-      void tracer_forcing(double t, const DTArray & u, const DTArray & v,
-            const DTArray & w, vector<DTArray *> & tracers_f) {
+      void tracer_forcing(double t, DTArray & u, DTArray & v,
+            DTArray & w, vector<DTArray *> & tracers_f) {
          *tracers_f[0] = 0;
          // Heat does the flows in at the bottom
          (*tracers_f[0])(blitz::Range::all(),blitz::Range::all(),0) = 1;

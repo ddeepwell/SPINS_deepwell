@@ -149,8 +149,8 @@ class mapiw : public BaseCase {
 
       // Forcing must be done generally, since both rotation and density are
       // involved
-      void forcing(double t, const DTArray & u, DTArray & u_f, 
-            const DTArray & v, DTArray & v_f, const DTArray & w,
+      void forcing(double t, DTArray & u, DTArray & u_f, 
+            DTArray & v, DTArray & v_f, DTArray & w,
             DTArray & w_f, vector<DTArray *> & tracers,
             vector<DTArray *> & tracers_f) {
          // Rotation couples u and v, plus a source term for the tide

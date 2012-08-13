@@ -299,8 +299,8 @@ class userControl : public BaseCase {
          write_reader(rho,"p",true);
       }
 
-      void forcing(double t, const DTArray & u, DTArray & u_f,
-          const DTArray & v, DTArray & v_f, const DTArray & w, DTArray & w_f,
+      void forcing(double t, DTArray & u, DTArray & u_f,
+          DTArray & v, DTArray & v_f, DTArray & w, DTArray & w_f,
           vector<DTArray *> & tracers, vector<DTArray *> & tracers_f) {
          /* Velocity forcing */
          u_f = -rot_f * v; v_f = +rot_f * u;

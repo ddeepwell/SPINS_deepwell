@@ -28,12 +28,16 @@ class BaseCase {
       virtual int size_x() const; // Grid points in x
       virtual int size_y() const; // Grid points in y
       virtual int size_z() const; // Grid points in z
-      virtual int size_cube() const { abort(); }; // Special case -- N*N*N
+      virtual int size_cube() const { 
+         assert(0 && "size_cube not implemented");
+         abort(); }; // Special case -- N*N*N
 
       virtual double length_x() const; // Length in x
       virtual double length_y() const; // Length in y
       virtual double length_z() const; // Length in z
-      virtual double length_cube() const {abort();}; // Special case -- L*L*L
+      virtual double length_cube() const {
+         assert(0 && "length_cube not implemented");
+         abort();}; // Special case -- L*L*L
 
       virtual DIMTYPE type_x() const; // Expansion type in x
       virtual DIMTYPE type_y() const; // Expansion type in y
@@ -76,9 +80,13 @@ class BaseCase {
       /* Initialization */
       virtual double init_time() const; // Initialization time
       virtual void init_tracers(vector<DTArray *> & tracers);
-      virtual void init_vels(DTArray & u, DTArray & v, DTArray & w) { abort();};
+      virtual void init_vels(DTArray & u, DTArray & v, DTArray & w) { 
+         assert(0 && "init_vels not implemented");
+         abort();};
 
-      virtual void init_tracer(int t_num, DTArray & tracer) { abort();}; // single-tracer
+      virtual void init_tracer(int t_num, DTArray & tracer) { 
+         assert(0 && "init_tracer not implemented");
+         abort();}; // single-tracer
 
       /* Numerical checks */
       virtual double check_timestep(double step, double now);
@@ -105,10 +113,14 @@ class BaseCase {
       
       /* If there are active tracers, split V and T focing */
       virtual void vel_forcing(double t, DTArray& u_f, DTArray& v_f,
-                           DTArray& w_f, vector<DTArray *> & tracers) {abort();};
+                           DTArray& w_f, vector<DTArray *> & tracers) {
+         assert(0 && "vel_forcing not implemented");
+         abort();};
       virtual void tracer_forcing(double t, DTArray & u,
                DTArray & v, DTArray & w,
-               vector<DTArray *> & tracers_f) {abort();};
+               vector<DTArray *> & tracers_f) {
+         assert(0 && "tracer_forcing not implemented");
+         abort();};
 
       /* Analysis and writing */
 
@@ -117,8 +129,12 @@ class BaseCase {
       virtual void analysis(double t, DTArray & u, DTArray & v, DTArray & w,
             vector<DTArray *> tracer); // Less pressure
       virtual void vel_analysis(double t, DTArray & u, DTArray & v, 
-            DTArray & w) {abort();}; // Velocity analysis
-      virtual void tracer_analysis(double t, int t_num, DTArray & tracer) {abort();};
+            DTArray & w) {
+         assert(0 && "vel_analysis not implemented");
+         abort();}; // Velocity analysis
+      virtual void tracer_analysis(double t, int t_num, DTArray & tracer) {
+         assert(0 && "tracer_analysis not implemented");
+         abort();};
          // Single-tracer analysis
 };
 

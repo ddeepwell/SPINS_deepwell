@@ -185,9 +185,9 @@ class userControl : public BaseCase {
          grid = zz(kk);
          write_array(grid,"zgrid"); write_reader(grid,"zgrid",false);
       }
-      void passive_forcing(double t, const DTArray & u, DTArray & u_f, 
-            const DTArray & v, DTArray & v_f, 
-            const DTArray & w, DTArray & w_f) {
+      void passive_forcing(double t, DTArray & u, DTArray & u_f, 
+            DTArray & v, DTArray & v_f, 
+            DTArray & w, DTArray & w_f) {
          u_f = 0;
          v_f = 0;
          w_f = 0;

@@ -176,8 +176,8 @@ class dambreak : public BaseCase {
          w_f = -g*((*tracers[0]))/rho_0;
       }
       // Forcing of the density (zero)
-      void tracer_forcing(double t, const DTArray & u, const DTArray & v,
-            const DTArray & w, vector<DTArray *> & tracers_f) {
+      void tracer_forcing(double t, DTArray & u, DTArray & v,
+            DTArray & w, vector<DTArray *> & tracers_f) {
          *tracers_f[0] = 0;
       }
 

@@ -187,8 +187,8 @@ class userControl : public BaseCase {
          u_f = 0; v_f = 0;
          w_f = -g*(eqn_of_state_t(*tracers[0]))/rho_0;
       }
-      void tracer_forcing(double t, const DTArray & u, const DTArray & v,
-            const DTArray & w, vector<DTArray *> & tracers_f) {
+      void tracer_forcing(double t, DTArray & u, DTArray & v,
+            DTArray & w, vector<DTArray *> & tracers_f) {
          /* Forcing on the tracers themselves.  Since rho is a passive density,
             there is none. */
          *tracers_f[0] = 0;
