@@ -36,11 +36,11 @@ ifeq ($(OPTIM),true)
    endif
 endif
 
-INCLUDE_DIRS := $(MPI_INCDIR) $(LAPACK_INCDIR) $(BLITZ_INCDIR) $(FFTW_INCDIR) $(UMF_INCDIR) -I../include
+INCLUDE_DIRS := -I../include $(MPI_INCDIR) $(LAPACK_INCDIR) $(BLITZ_INCDIR) $(FFTW_INCDIR) $(UMF_INCDIR)
 CFLAGS := $(CFLAGS) $(INCLUDE_DIRS)
 
-LIB_DIRS := $(MPI_LIBDIR) $(LAPACK_LIBDIR) $(BLITZ_LIBDIR) $(FFTW_LIBDIR) $(UMF_LIBDIR) -L../lib
-LDLIBS := $(MPI_LIB) $(LAPACK_LIB) -lfftw3 -lblitz -lm -lstdc++ -lumfpack -lamd
+LIB_DIRS := -L../lib $(MPI_LIBDIR) $(LAPACK_LIBDIR) $(BLITZ_LIBDIR) $(FFTW_LIBDIR) $(UMF_LIBDIR)
+LDLIBS := -lfftw3 $(MPI_LIB) $(LAPACK_LIB) -lblitz -lm -lstdc++ -lumfpack -lamd
 LDFLAGS := $(LDFLAGS) $(LIB_DIRS) 
 
 .PHONY: all 

@@ -34,7 +34,7 @@ MPI_INCDIR=
 
 # Library names/locations for LAPACK
 LAPACK_LIB="-lmkl_intel_lp64 -lmkl_sequential -lmkl_core"
-LAPACK_LIBDIR=-L/uv-global/software/intel/composer_xe_2001_sp1.10.319/mkl/lib/intel64
+LAPACK_LIBDIR=-L/global/software/intel/composerxe/mkl/lib/intel64
 LAPACK_INCDIR=
 
 # Library locations for blitz; leave blank to use system-installed
