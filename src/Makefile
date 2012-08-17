@@ -57,7 +57,7 @@ NSIntegrator.o: NSIntegrator.cpp NSIntegrator_impl.cc
 tests/test%.o: tests/tests%.cpp
 	$(MPICXX) $(CFLAGS) -o $@ -c $<
 
-tests/test%_x: tests/test%.o TArray.o Parformer.o T_util.o  ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o
+tests/test%_x: tests/test%.o TArray.o Parformer.o T_util.o  ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) 
 
 cases/%.o: cases/%.cpp NSIntegrator_impl.cc NSIntegrator.hpp
