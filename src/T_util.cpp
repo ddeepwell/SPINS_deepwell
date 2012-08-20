@@ -653,9 +653,12 @@ void filter3(DTArray & source, TransWrapper & tform,
          are completely unchanged; after the cutoff value the filter
          behaves as an (order)-order Gaussian, decaying to exp(-cutoff) at
          the Nyquist frequency */
-   kvec = where(abs(kvec) <= cutoff*kmax, 1, exp(-strength*pow((kvec-kcut)/(kmax-kcut), order)));
-   lvec = where(abs(lvec) <= cutoff*lmax, 1, exp(-strength*pow((lvec-lcut)/(lmax-lcut), order)));
-   mvec = where(abs(mvec) <= cutoff*mmax, 1, exp(-strength*pow((mvec-mcut)/(mmax-mcut), order)));
+   kvec = where(abs(kvec) <= cutoff*kmax, 1, 
+         exp(-strength*pow((abs(kvec)-kcut)/(kmax-kcut), order)));
+   lvec = where(abs(lvec) <= cutoff*lmax, 1, 
+         exp(-strength*pow((abs(lvec)-lcut)/(lmax-lcut), order)));
+   mvec = where(abs(mvec) <= cutoff*mmax, 1, 
+         exp(-strength*pow((abs(mvec)-mcut)/(mmax-mcut), order)));
    }
 
    // Multiply the proper temporary array by the transformation coefficients
