@@ -7,37 +7,55 @@
 #include "../Par_util.hpp"
 #include "../NSIntegrator.hpp"
 #include "../BaseCase.hpp"
+#include "../Options.hpp"
 #include <stdio.h>
 #include <mpi.h>
 #include <vector>
 #include <random/uniform.h>
 #include <random/normal.h>
+#include <string>
+
+using std::string;
 
 
 int          Nx, Ny, Nz; // Number of points in x, y, z
 double       Lx, Ly, Lz; // Grid lengths of x, y, z 
+double   MinX, MinY, MinZ; // Minimum x/y/z points
 
 
 // Input file names
-char xgrid_filename[100],
-     ygrid_filename[100],
-     zgrid_filename[100],
-     u_filename[100],
-     v_filename[100],
-     w_filename[100],
-     rho_filename[100];
+
+string xgrid_filename,
+       ygrid_filename,
+       zgrid_filename,
+       u_filename,
+       v_filename,
+       w_filename,
+       rho_filename,
+       tracer_filename;
 
 // Physical parameters
-double g, rot_f, vel_mu, dens_kappa;
+double g, rot_f, vel_mu, dens_kappa, tracer_kappa;
 
 // Writeout parameters
 double final_time, plot_interval;
 
+double initial_time;
+
 // Mapped grid?
-bool mapped, threedeevel;
+bool mapped;
+
+// Passive tracer?
+bool tracer;
 
 // Grid types
 DIMTYPE intype_x, intype_y, intype_z;
+
+static enum {
+   MATLAB,
+   CTYPE,
+   FULL3D
+} input_data_types;
 
 using std::vector;
 
@@ -50,8 +68,8 @@ using ranlib::Normal;
 int myrank = -1;
 
 bool restarting = false;
-int restart_sequence = 0;
 double restart_time = 0;
+int restart_sequence = -1;
 
 /* Log arrays, to store some diagnostic information on a per-timestep
    resolution */
@@ -82,27 +100,41 @@ class userControl : public BaseCase {
          return vel_mu;
       }
       double get_diffusivity(int t) const {
-         return dens_kappa; 
+         if (t == 0) return dens_kappa; 
+         if (t == 1) return tracer_kappa;
+         else assert(0 && "Invalid tracer number!");
       }
 
       double init_time() const { 
-         return restart_time;
+         return initial_time;
       }
 
       bool is_mapped() const {return mapped;}
       void do_mapping(DTArray & xg, DTArray & yg, DTArray & zg) {
-         if (master()) 
-            fprintf(stderr,"Reading xgrid (%d x %d) from %s\n",Nx,Nz,xgrid_filename);
-         read_2d_slice(xg,xgrid_filename,Nx,Nz);
-         if (Ny == 1) yg = 0;
-         else {
-            yg = 0*ii + (0.5+jj)/Ny*Ly-Ly/2 + 0*kk;
+         if (input_data_types == MATLAB) {
+            if (master())
+               fprintf(stderr,"Reading MATLAB-format xgrid (%d x %d) from %s\n",
+                     Nx,Nz,xgrid_filename.c_str());
+            read_2d_slice(xg,xgrid_filename.c_str(),Nx,Nz);
+            if (master())
+               fprintf(stderr,"Reading MATLAB-format zgrid (%d x %d) from %s\n",
+                     Nx,Nz,zgrid_filename.c_str());
+            read_2d_slice(zg,zgrid_filename.c_str(),Nx,Nz);
+         } else if (input_data_types == CTYPE ||
+                    input_data_types == FULL3D) {
+            if (master())
+               fprintf(stderr,"Reading CTYPE-format xgrid (%d x %d) from %s\n",
+                     Nx,Nz,xgrid_filename.c_str());
+            read_2d_restart(xg,xgrid_filename.c_str(),Nx,Nz);
+            if (master())
+               fprintf(stderr,"Reading CTYPE-format zgrid (%d x %d) from %s\n",
+                     Nx,Nz,zgrid_filename.c_str());
+            read_2d_restart(zg,zgrid_filename.c_str(),Nx,Nz);
          }
-         read_2d_slice(zg,zgrid_filename,Nx,Nz);
-         if (master())
-            fprintf(stderr,"Reading zgrid (%d x %d) from %s\n",Nx,Nz,zgrid_filename);
+         // Automatically generate y-grid
+         yg = 0*ii + MinY + Ly*(0.5+jj)/Ny + 0*kk;
 
-         // Write out grid readers
+         // Write out the grids and matlab readers
          write_array(xg,"xgrid");write_reader(xg,"xgrid",false);
          if (Ny > 1)
             write_array(yg,"ygrid"); write_reader(yg,"ygrid",false);
@@ -112,10 +144,15 @@ class userControl : public BaseCase {
       /* We have an active tracer, namely density */
       int numActive() const { return 1; }
 
+      /* We're given a passive tracer to advect */
+      int numPassive() const {
+         if (tracer) return 1;
+         else return 0;
+      }
+
       /* Timestep-check function.  This (long with "write everything" outputs) should
          really be bumped into the BaseCase */
       double check_timestep(double intime, double now) {
-//         if (master()) fprintf(stderr,"Input time %g\n",intime);
          if (intime < 1e-9) {
             /* Timestep's too small, somehow stuff is blowing up */
             if (master()) fprintf(stderr,"Tiny timestep (%e), aborting\n",intime);
@@ -138,6 +175,7 @@ class userControl : public BaseCase {
             return (until_plot / steps);
          }
       }
+
       void analysis(double time, DTArray & u, DTArray & v, DTArray & w,
             vector<DTArray *> tracer, DTArray & pressure) {
          itercount = itercount + 1;
@@ -176,11 +214,10 @@ class userControl : public BaseCase {
                      time,itercount,mu,max_v,mw,mddiff);
             last_writeout = itercount;
          }
-         //MPI_Finalize(); exit(1);
       }
 
       void init_vels(DTArray & u, DTArray & v, DTArray & w) {
-         /* Initialize u, w from read-in slice */
+         // Initialize the velocities from read-in data
          if (master()) fprintf(stderr,"Initializing velocities\n");
          if (restarting) {
             /* Restarting, so build the proper filenames and load
@@ -191,7 +228,8 @@ class userControl : public BaseCase {
             if (master()) fprintf(stdout,"Reading u from %s\n",filename);
             read_array(u,filename,Nx,Ny,Nz);
 
-            /* v */
+            /* v, only necessary if this is an actual 3D run or if
+               rotation is noNzero */
             if (Ny > 1 || rot_f != 0) {
                snprintf(filename,100,"v.%d",restart_sequence);
                if (master()) fprintf(stdout,"Reading v from %s\n",filename);
@@ -204,25 +242,62 @@ class userControl : public BaseCase {
             read_array(w,filename,Nx,Ny,Nz);
             return;
          }
-         if (!threedeevel) {
-            if (master()) fprintf(stderr,"Reading u (%d x %d) from %s\n",Nx,Nz,rho_filename);
-            read_2d_slice(u,u_filename,Nx,Nz);
-            if (master()) fprintf(stderr,"Reading w (%d x %d) from %s\n",Nx,Nz,rho_filename);
-            read_2d_slice(w,w_filename,Nx,Nz);
-            if (Ny > 1 || rot_f != 0) {
-               if (master()) fprintf(stderr,"Reading v (%d x %d) from %s\n",Nx,Nz,rho_filename);
-               read_2d_slice(v,v_filename,Nx,Nz);
-            } else {
-               v = 0;
-            }
-         } else {
-            if (master()) fprintf(stderr,"Reading u (%d x %d x %d) from %s\n",Nx,Ny,Nz,rho_filename);
-            read_array(u,u_filename,Nx,Ny,Nz);
-            if (master()) fprintf(stderr,"Reading v (%d x %d x %d) from %s\n",Nx,Ny,Nz,rho_filename);
-            read_array(v,v_filename,Nx,Ny,Nz);
-            if (master()) fprintf(stderr,"Reading w (%d x %d x %d) from %s\n",Nx,Ny,Nz,rho_filename);
-            read_array(w,w_filename,Nx,Ny,Nz);
+
+         // Read in the appropriate data types
+         switch(input_data_types) {
+            case MATLAB: // MATLAB data
+               if (master())
+                  fprintf(stderr,"reading matlab-type u (%d x %d) from %s\n",
+                        Nx,Nz,u_filename.c_str());
+               read_2d_slice(u,u_filename.c_str(),Nx,Nz);
+               if (v_filename != "" && (Ny >> 1 || rot_f != 0)) {
+                  if (master())
+                     fprintf(stderr,"reading matlab-type v (%d x %d) from %s\n",
+                           Nx,Nz,v_filename.c_str());
+                  read_2d_slice(v,v_filename.c_str(),Nx,Nz);
+               } else {
+                  v = 0;
+               }
+               if (master())
+                  fprintf(stderr,"reading matlab-type w (%d x %d) from %s\n",
+                        Nx,Nz,w_filename.c_str());
+               read_2d_slice(w,w_filename.c_str(),Nx,Nz);
+               break;
+            case CTYPE: // Column-major 2D data
+               if (master())
+                  fprintf(stderr,"reading ctype u (%d x %d) from %s\n",
+                        Nx,Nz,u_filename.c_str());
+               read_2d_restart(u,u_filename.c_str(),Nx,Nz);
+               if (v_filename != "" && (Ny >> 1 || rot_f != 0)) {
+                  if (master())
+                     fprintf(stderr,"reading ctype v (%d x %d) from %s\n",
+                           Nx,Nz,v_filename.c_str());
+                  read_2d_restart(v,v_filename.c_str(),Nx,Nz);
+               } else {
+                  v = 0;
+               }
+               if (master())
+                  fprintf(stderr,"reading ctype w (%d x %d) from %s\n",
+                        Nx,Nz,w_filename.c_str());
+               read_2d_restart(w,w_filename.c_str(),Nx,Nz);
+               break;
+            case FULL3D:
+               if (master()) 
+                  fprintf(stdout,"Reading u from %s\n",
+                     u_filename.c_str());
+               read_array(u,u_filename.c_str(),Nx,Ny,Nz);
+               if (master()) 
+                  fprintf(stdout,"Reading u from %s\n",
+                     v_filename.c_str());
+               read_array(v,v_filename.c_str(),Nx,Ny,Nz);
+               if (master()) 
+                  fprintf(stdout,"Reading w from %s\n",
+                     w_filename.c_str());
+               read_array(w,w_filename.c_str(),Nx,Ny,Nz);
+               break;
          }
+
+
          /* Write out initial values */
          write_array(u,"u",0);
          write_reader(u,"u",true);
@@ -234,46 +309,74 @@ class userControl : public BaseCase {
          write_reader(w,"w",true);
       }
       void init_tracer(int t_num, DTArray & rho) {
-         if (master()) fprintf(stderr,"Initializing tracer\n");
+         if (master()) fprintf(stderr,"Initializing tracer %d\n",t_num);
          /* Initialize the density and take the opportunity to write out the grid */
-         assert(t_num == 0);
-         if (!mapped) {
-            // First, if not mapped grid, commandeer rho to write out grids
-            if (master()) 
-               fprintf(stderr,"Reading xgrid (%d x %d) from %s\n",Nx,Nz,xgrid_filename);
-            read_2d_slice(rho,xgrid_filename,Nx,Nz);
-            // Write out grid readers
-            write_array(rho,"xgrid");write_reader(rho,"xgrid",false);
-            if (Ny > 1){
-               rho = 0*ii + (0.5+jj)/Ny*Ly - Ly/2 + 0*kk;
-               write_array(rho,"ygrid"); write_reader(rho,"ygrid",false);
+         if (t_num == 0) {
+            if (restarting) {
+               /* Restarting, so build the proper filenames and load
+                  the data into u, v, w */
+               char filename[100];
+               /* rho */
+               snprintf(filename,100,"rho.%d",restart_sequence);
+               if (master()) fprintf(stdout,"Reading rho from %s\n",filename);
+               read_array(rho,filename,Nx,Ny,Nz);
+               return;
             }
-            read_2d_slice(rho,zgrid_filename,Nx,Nz);
-            if (master())
-               fprintf(stderr,"Reading zgrid (%d x %d) from %s\n",Nx,Nz,zgrid_filename);
-
-            write_array(rho,"zgrid"); write_reader(rho,"zgrid",false);
+            switch (input_data_types) {
+               case MATLAB:
+                  if (master())
+                     fprintf(stderr,"reading matlab-type rho (%d x %d) from %s\n",
+                           Nx,Nz,rho_filename.c_str());
+                  read_2d_slice(rho,rho_filename.c_str(),Nx,Nz);
+                  break;
+               case CTYPE:
+                  if (master())
+                     fprintf(stderr,"reading ctype rho (%d x %d) from %s\n",
+                           Nx,Nz,rho_filename.c_str());
+                  read_2d_restart(rho,rho_filename.c_str(),Nx,Nz);
+                  break;
+               case FULL3D:
+                  if (master())
+                     fprintf(stderr,"reading rho (%d x %d x %d) from %s\n",
+                           Nx,Ny,Nz,rho_filename.c_str());
+                  read_array(rho,rho_filename.c_str(),Nx,Ny,Nz);
+                  break;
+            }
+            write_array(rho,"rho",0);
+            write_reader(rho,"rho",true);
+            write_reader(rho,"p",true);
+         } else if (t_num == 1) {
+            if (restarting) {
+               char filename[100];
+               /* rho */
+               snprintf(filename,100,"tracer.%d",restart_sequence);
+               if (master()) fprintf(stdout,"Reading tracer from %s\n",filename);
+               read_array(rho,filename,Nx,Ny,Nz);
+               return;
+            }
+            switch (input_data_types) {
+               case MATLAB:
+                  if (master())
+                     fprintf(stderr,"reading matlab-type tracer (%d x %d) from %s\n",
+                           Nx,Nz,tracer_filename.c_str());
+                  read_2d_slice(rho,tracer_filename.c_str(),Nx,Nz);
+                  break;
+               case CTYPE:
+                  if (master())
+                     fprintf(stderr,"reading ctype tracer (%d x %d) from %s\n",
+                           Nx,Nz,tracer_filename.c_str());
+                  read_2d_restart(rho,tracer_filename.c_str(),Nx,Nz);
+                  break;
+               case FULL3D:
+                  if (master())
+                     fprintf(stderr,"reading tracer (%d x %d x %d) from %s\n",
+                           Nx,Ny,Nz,tracer_filename.c_str());
+                  read_array(rho,tracer_filename.c_str(),Nx,Ny,Nz);
+                  break;
+            }
          }
-         if (restarting) {
-            /* Restarting, so build the proper filenames and load
-               the data into u, v, w */
-            char filename[100];
-            /* rho */
-            snprintf(filename,100,"rho.%d",restart_sequence);
-            if (master()) fprintf(stdout,"Reading rho from %s\n",filename);
-            read_array(rho,filename,Nx,Ny,Nz);
-            return;
-         }
-         if (!threedeevel) {
-            if (master()) fprintf(stderr,"Reading rho (%d x %d) from %s\n",Nx,Nz,rho_filename);
-            read_2d_slice(rho,rho_filename,Nx,Nz); 
-         } else {
-            if (master()) fprintf(stderr,"Reading rho (%d x %d x %d) from %s\n",Nx,Ny,Nz,rho_filename);
-            read_array(rho,rho_filename,Nx,Ny,Nz);
-         }
-         write_array(rho,"rho",0);
-         write_reader(rho,"rho",true);
-         write_reader(rho,"p",true);
+         write_array(rho,"tracer",0);
+         write_reader(rho,"tracer",true);
       }
 
       void forcing(double t, DTArray & u, DTArray & u_f,
@@ -283,11 +386,12 @@ class userControl : public BaseCase {
          u_f = -rot_f * v; v_f = +rot_f * u;
          w_f = -g*((*tracers[0]));
          *(tracers_f[0]) = 0;
+         if (tracer) *(tracers_f[1]) = 0;
       }
 
       userControl() :
          plotnum(restart_sequence), 
-         nextplot(plot_interval*(plotnum+1)), itercount(0), lastplot(0),
+         nextplot(initial_time + plot_interval), itercount(0), lastplot(0),
          last_writeout(0) 
          {
             compute_quadweights(size_x(),size_y(),size_z(),
@@ -302,163 +406,140 @@ int main(int argc, char ** argv) {
    //f_order = 4;
    //f_cutoff = 0.6;
    MPI_Init(&argc,&argv);
-   /* Since we have a few parameters to look at, open a configuration
-      file */
-   FILE * config_file = fopen("config_file","r");
-   assert(config_file);
-   /* Configuration file specification is as follows:
-      mapped?  % MAPPED / UNMAPPED / MAPPED_3DVEL
-      type_x Nx Lx xgrid_filename
-      type_y Ny Ly ygrid_filename
-      type_z Nz Lz zgrid_filename
-      filename_u
-      filename_v
-      filename_w
-      filename_rho
-      g rot_f vel_mu dens_kappa
-      final_time
-      plot_interval */
-   {
-      char mapping[100]; int unused;
-      // Whether the grid is mapped or unmapped
-      unused = fscanf(config_file," %s ",mapping);
-      if (!strcmp(mapping,"MAPPED")) {
-         mapped = true;
-         threedeevel = false;
-      } else if (!strcmp(mapping,"UNMAPPED")) {
-         mapped = false;
-         threedeevel = false;
-      } else if (!strcmp(mapping,"MAPPED_3DVEL")) {
-         mapped = true;
-         threedeevel = true;
-      } else {
-         if (master()) {
-            fprintf(stderr,"Error in configuration file: cannot tell whether %s\n",mapping);
-            fprintf(stderr,"is MAPPED or UNMAPPED or MAPPED_3DVEL\n");
-         }
-         MPI_Finalize(); exit(1);
-      }
-      if (master()) fprintf(stderr,"Received %s grid\n",(mapped?"mapped":"unmapped"));
 
-      // x direction
-      char type_str[100];
-      unused = fscanf(config_file," %s %d %lf %s ",type_str,&Nx,&Lx,xgrid_filename);
-      if (master()) fprintf(stderr,"In x, received a grid of type ");
-      // x-type conversion
-      if (!strcmp(type_str ,"PERIODIC")) {
-         intype_x = PERIODIC;
-         if (master()) fprintf(stderr,"Fourier periodic");
-      } else if (!strcmp(type_str,"FOURIER_SLIP")) {
-         intype_x = FREE_SLIP;
-         if (master()) fprintf(stderr,"Fourier slip");
-      } else if (!strcmp(type_str,"CHEBY_SLIP") || !strcmp(type_str,"CHEBY_NOSLIP")) {
-         intype_x = NO_SLIP;
-         if (master()) fprintf(stderr,"Chebyshev");
-      } else {
-         if (master()) fprintf(stderr,"invalid! (%s)",type_str);
-         MPI_Finalize(); exit(1);
-      }
+   // To properly handle the variety of options, set up the boost
+   // program_options library using the abbreviated interface in
+   // ../Options.hpp
 
-      if (master()) fprintf(stderr," with %d points, length %g, filename %s\n",Nx,Lx,xgrid_filename);
-      if (Nx <= 0 || Lx == 0) {
-         MPI_Finalize(); exit(1);
-      }
-      // Total hack, see Lz for explanation
-      if (intype_x == NO_SLIP) {
-         Lx = -Lx;
-      }
+   options_init(); // Initialize options
 
-      // y direction
-      unused = fscanf(config_file," %s %d %lf %s ",type_str,&Ny,&Ly,ygrid_filename);
-      if (master()) fprintf(stderr,"In y, received a grid of type ");
-      // x-type conversion
-      if (!strcmp(type_str ,"PERIODIC")) {
-         intype_y = PERIODIC;
-         if (master()) fprintf(stderr,"Fourier periodic");
-      } else if (!strcmp(type_str,"FOURIER_SLIP")) {
-         intype_y = FREE_SLIP;
-         if (master()) fprintf(stderr,"Fourier slip");
-      } else if (!strcmp(type_str,"CHEBY_SLIP") || !strcmp(type_str,"CHEBY_NOSLIP")) {
-         intype_y = NO_SLIP;
-         if (master()) fprintf(stderr,"Chebyshev");
-      } else {
-         if (master()) fprintf(stderr,"invalid! (%s)",type_str);
-         MPI_Finalize(); exit(1);
-      }
+   option_category("Grid Options");
 
-      if (master()) fprintf(stderr," with %d points, length %g, filename %s\n",Ny,Ly,ygrid_filename);
-      if (Ny <= 0 || Ly == 0) {
-         MPI_Finalize(); exit(1);
-      }
-      // z direction
-      unused = fscanf(config_file," %s %d %lf %s ",type_str,&Nz,&Lz,zgrid_filename);
-      if (master()) fprintf(stderr,"In z, received a grid of type ");
-      // z-type conversion
-      if (!strcmp(type_str ,"PERIODIC")) {
-         intype_z = PERIODIC;
-         if (master()) fprintf(stderr,"Fourier periodic");
-      } else if (!strcmp(type_str,"FOURIER_SLIP")) {
-         intype_z = FREE_SLIP;
-         if (master()) fprintf(stderr,"Fourier slip");
-      } else if (!strcmp(type_str,"CHEBY_SLIP") || !strcmp(type_str,"CHEBY_NOSLIP")) {
-         intype_z = NO_SLIP;
-         if (master()) fprintf(stderr,"Chebyshev");
-      } else {
-         if (master()) fprintf(stderr,"invalid! (%s)",type_str);
-         MPI_Finalize(); exit(1);
-      }
+   add_option("Nx",&Nx,"Number of points in X");
+   add_option("Ny",&Ny,1,"Number of points in Y");
+   add_option("Nz",&Nz,"Number of points in Z");
 
-      if (master()) fprintf(stderr," with %d points, length %g, filename %s\n",Nz,Lz,zgrid_filename);
-      if (Nz <= 0 || Lz == 0) {
-         MPI_Finalize(); exit(1);
-      }
-      // This line reflects an ugly, ugly hack.  If we're using unmapped, Chebyshev grids, then logic
-      // suggets that the array origin -- the (1,1) point -- should be at the bottom-left of the domain.
-      // However, the traditional Chebyshev ordering has this in the reverse order.  Until now, this has
-      // been solved by defining the grid in the physical ordering and just dealing with it in the 
-      // underlying code, using a negative "base grid length" during differentiation.  This won't do when
-      // we're not generating our own grid -- plain Matlab code will give a top-right origin.  So to
-      // take this into account without breaking already-written cases, cover up one hack with another
-      // and incorporate a negative grid length.
-      if (intype_z == NO_SLIP) {
-         Lz = -Lz;
-      }
+   string xgrid_type, ygrid_type, zgrid_type;
+   add_option("type_x",&xgrid_type,
+         "Grid type in X.  Valid values are:\n"
+         "   FOURIER: Periodic\n"
+         "   FREE_SLIP: Cosine expansion\n"
+         "   NO_SLIP: Chebyhsev expansion");
+   add_option("type_y",&ygrid_type,"FOURIER","Grid type in Y");
+   add_option("type_z",&zgrid_type,"Grid type in Z");
 
-      // Field filenames
-      unused = fscanf(config_file,"%s %s %s %s\n",u_filename,v_filename,w_filename,rho_filename);
-      if (master()) fprintf(stderr,"Input file names:\nu: %s\nv: %s\nw: %s\nrho: %s\n",u_filename,
-            v_filename, w_filename, rho_filename);
+   add_option("min_x",&MinX,0.0,"Unmapped grids: Minimum X-value");
+   add_option("min_y",&MinY,0.0,"Minimum Y-value");
+   add_option("min_z",&MinZ,0.0,"Minimum Z-value");
 
-      // Physical parameters
-      unused = fscanf(config_file,"%lf %lf %lf %lf",&g,&rot_f,&vel_mu,&dens_kappa);
-      if (master()) fprintf(stderr,"Physical parameters:\ng: %g\nf: %g\nnu: %g\nkappa: %g\n",
-            g,rot_f,vel_mu,dens_kappa);
-      if (vel_mu < 0 || dens_kappa < 0) {
-         MPI_Finalize(); exit(1);
-      }
+   option_category("Grid mapping options");
+   add_switch("mapped_grid",&mapped,"Use a mapped (2D) grid");
+   add_option("xgrid",&xgrid_filename,"x-grid filename");
+//   add_option("ygrid",&ygrid_filename,"","y-grid filename");
+   add_option("zgrid",&zgrid_filename,"z-grid filename");
 
-      unused = fscanf(config_file,"%lf %lf",&final_time,&plot_interval);
-      if (master()) fprintf(stderr,"Final time %g, plot interval %f\n",final_time,plot_interval);
-      if (final_time <= 0 || plot_interval <= 0) {
-         MPI_Finalize(); exit(1);
-      }
+   option_category("Input data");
+   string datatype;
+   add_option("file_type",&datatype,
+         "Format of input data files, including that for the mapped grid."
+         "Valid options are:\n"
+         "   MATLAB:\t Row-major 2D arrays of size Nx x Nz\n"
+         "   CTYPE: \t Column-major 2D arrays (including that output by 2D SPINS runs)\n"
+         "   FULL:  \t Column-major 3D arrays; implies CTYPE for grid mapping if enabled");
+
+   add_option("u_file",&u_filename,"U-velocity filename");
+   add_option("v_file",&v_filename,"","V-velocity filename");
+   add_option("w_file",&w_filename,"W-velocity filename");
+   add_option("rho_file",&rho_filename,"Rho (density) filename");
+
+   option_category("Passive tracer");
+   add_switch("enable_tracer",&tracer,"Enable evolution of a passive tracer");
+   add_option("tracer_file",&tracer_filename,"Tracer filename");
+   add_option("tracer_kappa",&tracer_kappa,"Diffusivity of tracer");
+
+   option_category("Physical parameters");
+   add_option("g",&g,9.81,"Gravitational acceleration");
+   add_option("rot_f",&rot_f,0.0,"Coriolis force term");
+   add_option("visc",&vel_mu,0.0,"Kinematic viscosity");
+   add_option("kappa",&dens_kappa,0.0,"Thermal diffusivity");
+
+   option_category("Running options");
+   add_option("init_time",&initial_time,0.0,"Initial time");
+   add_option("final_time",&final_time,"Final time");
+   add_option("plot_interval",&plot_interval,"Interval between output times");
+
+   option_category("Restart options");
+   add_switch("restart",&restarting,"Restart from prior output time.  OVERRIDES many other values.");
+   add_option("restart_time",&restart_time,0.0,"Time to restart from");
+   add_option("restart_sequence",&restart_sequence,
+         "Sequence number to restart from (if plot_interval has changed)");
 
 
+   // Parse the options from the command line and config file
+   options_parse(argc,argv);
+
+   // Now, make sense of the options received.  Many of these values
+   // can be directly used, but the ones of string-type need further
+   // procesing.
+
+   // Grid types:
+
+   if (xgrid_type == "FOURIER") {
+      intype_x = PERIODIC;
+   } else if (xgrid_type == "FREE_SLIP") {
+      intype_x = FREE_SLIP;
+   } else if (xgrid_type == "NO_SLIP") {
+      intype_x = NO_SLIP;
+   } else {
+      if (master())
+         fprintf(stderr,"Invalid option %s received for type_x\n",xgrid_type.c_str());
+      MPI_Finalize(); exit(1);
+   }
+   if (ygrid_type == "FOURIER") {
+      intype_y = PERIODIC;
+   } else if (ygrid_type == "FREE_SLIP") {
+      intype_y = FREE_SLIP;
+   } else {
+      if (master())
+         fprintf(stderr,"Invalid option %s received for type_y\n",ygrid_type.c_str());
+      MPI_Finalize(); exit(1);
+   }
+   if (zgrid_type == "FOURIER") {
+      intype_z = PERIODIC;
+   } else if (zgrid_type == "FREE_SLIP") {
+      intype_z = FREE_SLIP;
+   } else if (zgrid_type == "NO_SLIP") {
+      intype_z = NO_SLIP;
+   } else {
+      if (master())
+         fprintf(stderr,"Invalid option %s received for type_z\n",zgrid_type.c_str());
+      MPI_Finalize(); exit(1);
    }
 
+   // Input filetypes
 
-   fclose(config_file);
-   //MPI_Finalize(); exit(1);
-   if (argc > 3) {
-      /* Possibly restarting */
-      if (strcmp("--restart",argv[1])==0) {
-         if (master()) fprintf(stdout,"Restarting...\n");
-         restarting = true;
-         restart_time = atof(argv[2]);
-         if (master()) fprintf(stdout,"Restart time %f\n",restart_time);
-         restart_sequence = atoi(argv[3]);
-         if (master()) fprintf(stdout,"Restart sequence %d\n",restart_sequence);
+   if (datatype=="MATLAB") {
+      input_data_types = MATLAB;
+   } else if (datatype == "CTYPE") {
+      input_data_types = CTYPE;
+   } else if (datatype == "FULL") {
+      input_data_types = FULL3D;
+   } else {
+      if (master())
+         fprintf(stderr,"Invalid option %s received for file_type\n",datatype.c_str());
+      MPI_Finalize(); exit(1);
+   }
+
+   if (restarting) {
+      if (restart_sequence <= 0) {
+         restart_sequence = int(restart_time/plot_interval);
       }
+      if (master()) {
+         fprintf(stderr,"Restart flags detected\n");
+         fprintf(stderr,"Restarting from time %g, at sequence number %d\n",
+               restart_time,restart_sequence);
+      }
+      initial_time = restart_time;
    }
    userControl mycode;
    FluidEvolve<userControl> kevin_kh(&mycode);
