@@ -39,6 +39,10 @@ template <class t> void add_option(
    categories.back()->add_options()
       (name,popt::value<t>(location)->default_value(def_value),description);
 }
+// Specialization of the above for a string argument
+void add_option(
+      const char * name, string * location,
+      const char * def_value, const char * description);
 
 // Wrapper for adding a "switch" option that is either present (true) or
 // not present (false).

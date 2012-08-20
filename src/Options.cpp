@@ -181,3 +181,11 @@ void options_parse(int argc, char ** argv) {
 
 }
 
+// Add_option specialization so string default values are nicely
+// handled as "constant character arrays in double quotes"
+void add_option(
+      const char * name, string * location,
+      const char * def_value, const char * description) {
+   add_option<string>(name, location, string(def_value), description);
+}
+

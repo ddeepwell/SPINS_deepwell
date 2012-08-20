@@ -40,7 +40,7 @@ INCLUDE_DIRS := -I../include $(MPI_INCDIR) $(LAPACK_INCDIR) $(BLITZ_INCDIR) $(FF
 CFLAGS := $(CFLAGS) $(INCLUDE_DIRS)
 
 LIB_DIRS := -L../lib $(MPI_LIBDIR) $(LAPACK_LIBDIR) $(BLITZ_LIBDIR) $(FFTW_LIBDIR) $(UMF_LIBDIR)
-LDLIBS := -lfftw3 $(MPI_LIB) $(LAPACK_LIB) -lblitz -lm -lstdc++ -lumfpack -lamd
+LDLIBS := -lfftw3 $(MPI_LIB) $(LAPACK_LIB) -lblitz -lm -lstdc++ -lumfpack -lamd -lboost_program_options
 LDFLAGS := $(LDFLAGS) $(LIB_DIRS) 
 
 .PHONY: all 
@@ -70,10 +70,10 @@ nonhydro_x: nonhydro_sw.o TArray.o T_util.o Parformer.o Splits.o Par_util.o Spli
 derek_x: derek.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o 
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-cases/%.x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o
+cases/%.x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-cases/%_x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o
+cases/%_x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 %.o : %.cpp	*.hpp
