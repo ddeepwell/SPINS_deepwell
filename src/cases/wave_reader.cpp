@@ -71,6 +71,9 @@ bool restarting = false;
 double restart_time = 0;
 int restart_sequence = -1;
 
+double perturb = 0;
+
+
 /* Log arrays, to store some diagnostic information on a per-timestep
    resolution */
 //double times_log[100], ke_2d_log[100], ke_3d_log[100], max_v_log[100],
@@ -298,6 +301,22 @@ class userControl : public BaseCase {
          }
 
 
+         // Add a random perturbation to trigger any 3D instabilities
+         if (perturb > 0) {
+            int myrank;
+            MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+            Normal<double> rnd(0,1);
+            for (int i = u.lbound(firstDim); i <= u.ubound(firstDim); i++) {
+               rnd.seed(i);
+               for (int j = u.lbound(secondDim); j <= u.ubound(secondDim); j++) {
+                  for (int k = u.lbound(thirdDim); k <= u.ubound(thirdDim); k++) {
+                     u(i,j,k) *= 1+perturb*rnd.random();
+                     v(i,j,k) *= 1+perturb*rnd.random();
+                     w(i,j,k) *= 1+perturb*rnd.random();
+                  }
+               }
+            }
+         }
          /* Write out initial values */
          write_array(u,"u",plotnum);
          write_reader(u,"u",true);
@@ -442,7 +461,7 @@ int main(int argc, char ** argv) {
    add_option("min_z",&MinZ,0.0,"Minimum Z-value");
 
    option_category("Grid mapping options");
-   add_switch("mapped_grid",&mapped,"Use a mapped (2D) grid");
+   add_option("mapped_grid",&mapped,false,"Use a mapped (2D) grid");
    add_option("xgrid",&xgrid_filename,"x-grid filename");
 //   add_option("ygrid",&ygrid_filename,"","y-grid filename");
    add_option("zgrid",&zgrid_filename,"z-grid filename");
@@ -471,6 +490,8 @@ int main(int argc, char ** argv) {
    add_option("rot_f",&rot_f,0.0,"Coriolis force term");
    add_option("visc",&vel_mu,0.0,"Kinematic viscosity");
    add_option("kappa",&dens_kappa,0.0,"Thermal diffusivity");
+
+   add_option("perturbation",&perturb,0.0,"Veloc\tity perturbation (multiplicative white noise) applied to read-in data.");
 
    option_category("Running options");
    add_option("init_time",&initial_time,0.0,"Initial time");
