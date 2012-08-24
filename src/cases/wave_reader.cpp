@@ -397,6 +397,11 @@ class userControl : public BaseCase {
             compute_quadweights(size_x(),size_y(),size_z(),
                   length_x(),length_y(),length_z(),
                   type_x(),type_y(),type_z());
+            // If this is an unmapped grid, generate/write the
+            // 3D grid files
+            if (!is_mapped()) {
+               automatic_grid(MinX,MinY,MinZ);
+            }
          }
 };
 

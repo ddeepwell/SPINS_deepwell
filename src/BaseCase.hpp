@@ -134,8 +134,10 @@ class BaseCase {
          abort();}; // Velocity analysis
       virtual void tracer_analysis(double t, int t_num, DTArray & tracer) {
          assert(0 && "tracer_analysis not implemented");
-         abort();};
-         // Single-tracer analysis
+         abort();}; // Single-tracer analysis
+
+      // Generate an automatic grid for unmapped cases
+      virtual void automatic_grid(double MinX,double MinY,double MinZ);
 };
 
 extern template class FluidEvolve<BaseCase>;

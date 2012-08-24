@@ -1,6 +1,7 @@
 #include "BaseCase.hpp"
 #include "NSIntegrator.hpp"
 #include "TArray.hpp"
+#include <blitz/array.h>
 
 //using namespace TArray;
 using namespace NSIntegrator;
@@ -109,7 +110,7 @@ double BaseCase::init_time() const {
 void BaseCase::init_tracers(vector<DTArray *> & tracers) {
    /* Initalize tracers one-by-one */
    if (numtracers() == 0) return; // No tracers, do nothing
-   assert(numtracers() == tracers.size()); // Sanity check
+   assert(numtracers() == int(tracers.size())); // Sanity check
    for (int i = 0; i < numtracers(); i++) {
       init_tracer(i, *(tracers[i]));
    }
@@ -161,5 +162,43 @@ void BaseCase::analysis(double t, DTArray & u, DTArray & v, DTArray & w,
    for (int i = 0; i < numtracers(); i++) {
      tracer_analysis(t, i, *(tracer[i]));
    } 
+}
+
+void BaseCase::automatic_grid(double MinX,double MinY,double MinZ) {
+   Array<double,1> xx(split_range(size_x())), yy(size_y()), zz(size_z());
+   Array<double,3> grid(alloc_lbound(size_x(),size_y(),size_z()),
+                        alloc_extent(size_x(),size_y(),size_z()),
+                        alloc_storage(size_x(),size_y(),size_z()));
+   blitz::firstIndex ii;
+   blitz::secondIndex jj;
+   blitz::thirdIndex kk;
+
+   // Generate 1D arrays
+   if (type_x() == NO_SLIP) {
+      xx = MinX+length_x()*(0.5+0.5*cos(M_PI*ii/size_x()));
+   } else {
+      xx = MinX + length_x()*(ii+0.5)/size_x();
+   }
+   yy = MinY + length_y()*(ii+0.5)/size_y();
+   if (type_z() == NO_SLIP) {
+      zz = MinZ+length_z()*(0.5+0.5*cos(M_PI*ii/size_z()));
+   } else {
+      zz = MinZ + length_z()*(0.5+ii)/size_z();
+   }
+
+   // Write grid/reader
+   grid = xx(ii) + 0*jj + 0*kk;
+   write_array(grid,"xgrid");
+   write_reader(grid,"xgrid",false);
+
+   if (size_y() > 1) {
+      grid = 0*ii + yy(jj) + 0*kk;
+      write_array(grid,"ygrid");
+      write_reader(grid,"ygrid",false);
+   }
+
+   grid = 0*ii + 0*jj + zz(kk);
+   write_array(grid,"zgrid");
+   write_reader(grid,"zgrid",false);
 }
 
