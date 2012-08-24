@@ -299,13 +299,13 @@ class userControl : public BaseCase {
 
 
          /* Write out initial values */
-         write_array(u,"u",0);
+         write_array(u,"u",plotnum);
          write_reader(u,"u",true);
          if (Ny > 1 || rot_f != 0) {
-            write_array(v,"v",0);
+            write_array(v,"v",plotnum);
             write_reader(v,"v",true);
          }
-         write_array(w,"w",0);
+         write_array(w,"w",plotnum);
          write_reader(w,"w",true);
       }
       void init_tracer(int t_num, DTArray & rho) {
@@ -342,7 +342,7 @@ class userControl : public BaseCase {
                   read_array(rho,rho_filename.c_str(),Nx,Ny,Nz);
                   break;
             }
-            write_array(rho,"rho",0);
+            write_array(rho,"rho",plotnum);
             write_reader(rho,"rho",true);
             write_reader(rho,"p",true);
          } else if (t_num == 1) {
@@ -375,7 +375,7 @@ class userControl : public BaseCase {
                   break;
             }
          }
-         write_array(rho,"tracer",0);
+         write_array(rho,"tracer",plotnum);
          write_reader(rho,"tracer",true);
       }
 
@@ -443,9 +443,9 @@ int main(int argc, char ** argv) {
    add_option("file_type",&datatype,
          "Format of input data files, including that for the mapped grid."
          "Valid options are:\n"
-         "   MATLAB:\t Row-major 2D arrays of size Nx x Nz\n"
-         "   CTYPE: \t Column-major 2D arrays (including that output by 2D SPINS runs)\n"
-         "   FULL:  \t Column-major 3D arrays; implies CTYPE for grid mapping if enabled");
+         "   MATLAB: \tRow-major 2D arrays of size Nx x Nz\n"
+         "   CTYPE:  \tColumn-major 2D arrays (including that output by 2D SPINS runs)\n"
+         "   FULL:   \tColumn-major 3D arrays; implies CTYPE for grid mapping if enabled");
 
    add_option("u_file",&u_filename,"U-velocity filename");
    add_option("v_file",&v_filename,"","V-velocity filename");
@@ -540,6 +540,16 @@ int main(int argc, char ** argv) {
                restart_time,restart_sequence);
       }
       initial_time = restart_time;
+   } else {
+      // Not restarting, so set the initial sequence number
+      // to the initial time / plot_interval
+      restart_sequence = int(initial_time/plot_interval);
+      if (fmod(initial_time,plot_interval) != 0.0) {
+         if (master()) {
+            fprintf(stderr,"Warning: the initial time (%g) does not appear to be an even multiple of the plot interval (%g)\n",
+                  initial_time,plot_interval);
+         }
+      }
    }
    userControl mycode;
    FluidEvolve<userControl> kevin_kh(&mycode);
