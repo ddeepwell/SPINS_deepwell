@@ -428,6 +428,10 @@ int main(int argc, char ** argv) {
    add_option("type_y",&ygrid_type,"FOURIER","Grid type in Y");
    add_option("type_z",&zgrid_type,"Grid type in Z");
 
+   add_option("Lx",&Lx,"X-length");
+   add_option("Ly",&Ly,1.0,"Y-length");
+   add_option("Lz",&Lz,"Z-length");
+
    add_option("min_x",&MinX,0.0,"Unmapped grids: Minimum X-value");
    add_option("min_y",&MinY,0.0,"Minimum Y-value");
    add_option("min_z",&MinZ,0.0,"Minimum Z-value");
