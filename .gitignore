@@ -32,6 +32,7 @@ zgrid*
 /AMD
 /include
 /lib
+/boost_1_51_0
 
 # Also exclude blitz and fftw, if these are local to the build
 

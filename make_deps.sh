@@ -26,6 +26,12 @@ BUILD_FFTW=no
 
 BUILD_UMFPACK=yes
 
+# Boost program_options library; this is often installed but
+# older versions of libboost do not have the program_options
+# library.
+
+BUILD_BOOST=no
+
 # Read in the appropriate system script.  If none is specified on the
 # command line, guess based on the hostname
 
@@ -149,3 +155,21 @@ else
 	echo "Done!"
 fi
 
+if [ ! "$BUILD_BOOST" = "yes" ]; then
+   echo "NOT building libboost"
+else
+   echo "Building libboost"
+   if [ ! -e "boost_1_51_0.tar.gz" ]; then
+      wget http://belize.math.uwaterloo.ca/~csubich/redist/boost_1_51_0.tar.gz
+   fi
+   # Untar libbost
+   (tar -xzvf boost_1_51_0.tar.gz > /dev/null) || 
+      (echo "Could not untar libboost" && exit 1)
+
+   pushd boost_1_51_0
+   export CXX
+   ( (./bootstrap.sh --with-libraries=program_options --prefix="$CWD" &&
+      ./b2 && ./b2 install) > /dev/null) ||
+      (echo "Could not build libboost!" ; exit 1)
+   popd
+fi
