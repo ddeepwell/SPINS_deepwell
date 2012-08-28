@@ -25,8 +25,8 @@
 #include <fstream> // File streams
 #include <vector> // Vector
 #include <mpi.h>
-#include <Par_util.hpp>
-#include <Options.hpp>
+#include "Par_util.hpp"
+#include "Options.hpp"
 
 // Include boost program options library
 #include <boost/program_options.hpp> 
