@@ -169,7 +169,7 @@ else
    pushd boost_1_51_0
    export CXX
    ( (./bootstrap.sh --with-libraries=program_options --prefix="$CWD" &&
-      ./b2 && ./b2 install) > /dev/null) ||
+      ./b2 link=static && ./b2 link=static install) > /dev/null) ||
       (echo "Could not build libboost!" ; exit 1)
    popd
 fi
