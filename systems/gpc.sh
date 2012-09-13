@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# System-specific settings for hungabee.westgrid.ca
+# System-specific settings for gpc, a scinet cluster
 
 CC=icc
 CXX=icc
