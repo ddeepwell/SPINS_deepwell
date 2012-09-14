@@ -24,13 +24,13 @@ BUILD_FFTW=no
 # at the corsest level of the 2D geometric multigrid algorithm
 # in SPINS
 
-BUILD_UMFPACK=no
+BUILD_UMFPACK=yes
 
 # Boost program_options library; this is often installed but
 # older versions of libboost do not have the program_options
 # library.
 
-BUILD_BOOST=yes
+BUILD_BOOST=no
 
 # Read in the appropriate system script.  If none is specified on the
 # command line, guess based on the hostname

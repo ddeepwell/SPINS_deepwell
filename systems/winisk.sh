@@ -56,3 +56,5 @@ BLAS_LIB=-lscs
 BLAS_LIBDIR=-L/opt/scsl/lib
 BLAS_INCDIR=
 
+# Boost toolset override
+BOOST_TOOLSET=gcc
