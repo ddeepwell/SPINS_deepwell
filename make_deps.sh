@@ -9,7 +9,7 @@
 # This is a C++ "meta-template library" for arrays that allows
 # manipulation of multidimensional arrays in C++ code with a
 # MATLAB-like syntax
-BUILD_BLITZ=no 
+BUILD_BLITZ=no
 
 # fftw -- www.fftw.org
 # This is a self-contained library for high-performance Fast
@@ -48,13 +48,15 @@ if [ $# -gt 0 ]; then
    fi
 else
    echo Guessing that system-specific variables are in systems/`hostname -s`.sh
-   source systems/`hostname -s`.sh || (echo "... but they're not"; exit 1)
+   source systems/`hostname -s`.sh 
+   if [ $? ]; then echo "... but they're not"; exit 1; fi
 fi
 
 # Current working directory
 CWD=`pwd`
 
 export CC
+export CXX
 export CFLAGS
 
 # Make, if necessary, the local include and lib directories
@@ -76,7 +78,10 @@ else
 		pushd blitz && (make install > /dev/null) && popd  && \
 		pushd lib && (make install > /dev/null) && popd  && \
 		pushd random && (make install > /dev/null) && popd && \
-	popd || (echo "Could not compile/install Blitz"; exit 1)
+	popd 
+   if [ ! $? ]; then
+      echo "Could not compile/install Blitz"; exit 1
+   fi
 	echo "Blitz++ built!"
 fi
 
@@ -88,13 +93,18 @@ else
 	if [ ! -e "fftw-3.3.2.tar.gz" ]; then
 		wget http://belize.math.uwaterloo.ca/~csubich/redist/fftw-3.3.2.tar.gz
 	fi
-	(tar -xzvf fftw-3.3.2.tar.gz > /dev/null) || (echo "Untar of FFTW FAILED"; exit 1)
+	(tar -xzvf fftw-3.3.2.tar.gz > /dev/null)
+   if [ ! $? ]; then
+      echo "Untar of FFTW FAILED"; exit 1
+   fi
 	pushd fftw-3.3.2
 	(./configure --prefix="$CWD" --disable-fortran --enable-sse2 $FFTW_OPTIONS > /dev/null) && \
 		(make > /dev/null) && \
 		(make install-libLTLIBRARIES > /dev/null) && \
-		pushd api; (make install > /dev/null) && popd \
-		|| (echo "Could not compile/install FFTW!"; exit 1);
+		pushd api; (make install > /dev/null) && popd 
+	if [ ! $? ]; then 
+      echo "Could not compile/install FFTW!"; exit 1;
+   fi
 	popd
 	echo "FFTW built!"
 fi
@@ -118,7 +128,10 @@ else
 	# Untar the lot
 	(tar -xzvf UFconfig-3.4.0.tar.gz;
 	 tar -xzvf UMFPACK.tar.gz;
-	 tar -xzvf AMD.tar.gz;) > /dev/null || (echo "Could not untar UMFACK"; exit 1)
+	 tar -xzvf AMD.tar.gz;) > /dev/null 
+   if [ ! $? ]; then
+      echo "Could not untar UMFACK"; exit 1
+   fi
 	
 	# There is no nice ./configure script, so we have to "edit" the UFconfig
 	# makefile by hand (that controls the others).
@@ -139,14 +152,20 @@ else
 
 	echo "Building AMD"
 	pushd AMD
-	(make lib > /dev/null) || (echo "Could not make AMD"; exit 1)
+	make lib > /dev/null 
+   if [ ! $? ]; then
+      echo "Could not make AMD"; exit 1
+   fi
 	cp -v Include/* ../include/
 	cp -v Lib/*.a ../lib/
 	popd
 
 	pushd UMFPACK
 	echo "Building UMFPACK"
-	(make library > /dev/null) || (echo "Could not make UMFPACK"; exit 1);
+	make library > /dev/null
+   if [ ! $? ]; then
+      echo "Could not make UMFPACK"; exit 1
+   fi
 	cp -v Include/* ../include/
 	cp -v Lib/*.a ../lib/
 	popd
@@ -163,8 +182,10 @@ else
       wget http://belize.math.uwaterloo.ca/~csubich/redist/boost_1_51_0.tar.gz
    fi
    # Untar libbost
-   (tar -xzvf boost_1_51_0.tar.gz > /dev/null) || 
-      (echo "Could not untar libboost" && exit 1)
+   tar -xzvf boost_1_51_0.tar.gz > /dev/null 
+   if [ ! $? ]; then
+      echo "Could not untar libboost" && exit 1
+   fi
 
    pushd boost_1_51_0
 
@@ -201,7 +222,9 @@ else
    ( (./bootstrap.sh $BOOST_TOOLSET_OPTION \
                      --with-libraries=program_options \
                      --prefix="$CWD" &&
-      ./b2 link=static && ./b2 link=static install) > /dev/null) ||
-      (echo "Could not build libboost!" ; exit 1)
+      ./b2 link=static && ./b2 link=static install) > /dev/null) 
+   if [ ! $? ]; then
+      echo "Could not build libboost!" ; exit 1
+   fi
    popd
 fi
