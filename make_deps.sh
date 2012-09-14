@@ -24,13 +24,13 @@ BUILD_FFTW=no
 # at the corsest level of the 2D geometric multigrid algorithm
 # in SPINS
 
-BUILD_UMFPACK=yes
+BUILD_UMFPACK=no
 
 # Boost program_options library; this is often installed but
 # older versions of libboost do not have the program_options
 # library.
 
-BUILD_BOOST=no
+BUILD_BOOST=yes
 
 # Read in the appropriate system script.  If none is specified on the
 # command line, guess based on the hostname
@@ -167,8 +167,40 @@ else
       (echo "Could not untar libboost" && exit 1)
 
    pushd boost_1_51_0
-   export CXX
-   ( (./bootstrap.sh --with-libraries=program_options --prefix="$CWD" &&
+
+   # Boost has build-specific toolsets, but it does NOT use the CC/CXX
+   # variables to detect the proper toolset.  Instead, it goes by a 
+   # fixed set of preferences, which prioritizes gcc over icc. 
+   # Obviously, this isn't going to work out on icc-based systems where
+   # the rest of spins will be built with icc, so we need to fix this
+   # here.  The most obvious thing to do is to set CC/CXX and use the
+   # --with-toolset=cc option, but that's broken as of at least 1.47,
+   # uncluding the distributed-here 1.51.0 (ticket #5917).  So, let's
+   #    a) Give system scripts a BOOST_TOOLSET setable option
+   #    b) If that's blank, check for icc/gcc as $CC
+   #    c) If that's still blank, default back to the basic boost
+   #       behaviour of autodetection
+
+   if [ -z $BOOST_TOOLSET ]; then
+      if [ $CC = "gcc" ]; then
+         BOOST_TOOLSET=gcc
+      fi
+      if [ $CC = "icc" ]; then
+         # Assume further a linux-based environment; boost has
+         # specific support for intel-darwin, but I don't think
+         # we have any darwin-with-icc systems
+         BOOST_TOOLSET=intel-linux
+      fi
+   fi
+   if [ ! -z $BOOST_TOOLSET ]; then
+      # Set the build parameter
+      echo "Using Boost toolset $BOOST_TOOLSET"
+      BOOST_TOOLSET_OPTION=--with-toolset=$BOOST_TOOLSET
+   fi
+
+   ( (./bootstrap.sh $BOOST_TOOLSET_OPTION \
+                     --with-libraries=program_options \
+                     --prefix="$CWD" &&
       ./b2 link=static && ./b2 link=static install) > /dev/null) ||
       (echo "Could not build libboost!" ; exit 1)
    popd
