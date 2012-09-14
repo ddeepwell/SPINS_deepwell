@@ -3,7 +3,7 @@
 # System-specific settings for hungabee.westgrid.ca
 
 CC=icc
-CXX=icc
+CXX=icpc
 LD=mpicc
 
 # System-specific compiler flags

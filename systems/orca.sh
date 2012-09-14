@@ -3,7 +3,7 @@
 # System-specific settings for the orca.sharcnet.ca cluster
 
 CC=icc
-CXX=icc
+CXX=icpc
 LD=mpic++
 
 # System-specific compiler flags

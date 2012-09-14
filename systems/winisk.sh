@@ -4,8 +4,8 @@
 # This also doubles for kazan.math.uwaterloo.ca
 
 CC=icc
-CXX=icc
-LD=icc
+CXX=icpc
+LD=icpc
 
 # System-specific compiler flags
 SYSTEM_CFLAGS="-Wno-deprecated -Wall -wd981 -wd444 -wd1572 -wd383 -wd869"

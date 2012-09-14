@@ -3,7 +3,7 @@
 # System-specific settings for gpc, a scinet cluster
 
 CC=icc
-CXX=icc
+CXX=icpc
 LD="mpicc -cc=icc"
 
 # System-specific compiler flags
