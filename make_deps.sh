@@ -49,7 +49,7 @@ if [ $# -gt 0 ]; then
 else
    echo Guessing that system-specific variables are in systems/`hostname -s`.sh
    source systems/`hostname -s`.sh 
-   if [ $? ]; then echo "... but they're not"; exit 1; fi
+   if [ ! $? ]; then echo "... but they're not"; exit 1; fi
 fi
 
 # Current working directory
