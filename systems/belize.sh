@@ -2,9 +2,9 @@
 
 # System-specific settings for belize.math.uwaterloo.ca
 
-CC=mpicc
-CXX=mpic++
-LD=mpic++
+CC=gcc
+CXX=g++
+LD=mpicc
 
 # System-specific compiler flags
 SYSTEM_CFLAGS=
@@ -26,6 +26,7 @@ EXTRA_OPTIM_LDFLAGS=
 # Library names/locations/flags for MPI-compilation.  This will
 # probably not be necessary on systems with a working mpicc
 # alias
+MPICXX=mpic++
 MPI_CFLAGS=
 MPI_LIB=
 MPI_LIBDIR=
