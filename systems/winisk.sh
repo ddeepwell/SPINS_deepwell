@@ -57,4 +57,6 @@ BLAS_LIBDIR=-L/opt/scsl/lib
 BLAS_INCDIR=
 
 # Boost toolset override
+# Works around a boost bug on itanium machines/icc
+# see boost ticket #5001
 BOOST_TOOLSET=gcc
