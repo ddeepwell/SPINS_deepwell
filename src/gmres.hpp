@@ -90,6 +90,8 @@ template <class Controller> class GMRES_Solver {
          ops(operators), default_inner(inner), 
          default_outer(outer), default_prec(prec) {
             lapack_workspace = 0;
+            lapack_iworkspace = 0;
+            last_inner = 0;
             lwork_size = -1;
       }
 
@@ -189,6 +191,10 @@ template <class Controller> class GMRES_Solver {
          if (lapack_workspace) {
             delete[] lapack_workspace;
             lapack_workspace = 0;
+         }
+         if (lapack_iworkspace) {
+            delete[] lapack_iworkspace;
+            lapack_iworkspace = 0;
          }
          lwork_size = -1;
       }

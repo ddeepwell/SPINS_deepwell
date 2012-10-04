@@ -259,7 +259,7 @@ MG_Solver::MG_Solver(Array<double,1> xvals, blitz::Array<double,1> zvals,
    coarse_symbolic_ok(false), coarse_numeric_ok(false), any_dxz(false),
    bc_tangent(false), bc_normal(false), numeric_factor(0), symbolic_factor(0),
    sparse_size(0), A_rows(), A_cols(), A_double(),
-   coarsest_level(false)
+   coarsest_level(false), indefinite_problem(false)
 {
    my_comm = c;
    symmetry_type = sym;
@@ -288,16 +288,19 @@ MG_Solver::MG_Solver(Array<double,1> xvals, blitz::Array<double,1> zvals,
 
    /* Top and bottom BCs need resized in the same manner */
    TinyVector<int,1> base_1d; base_1d(0) = local_x_lbound;
-   u_bot.resize(local_size_x); u_bot.reindexSelf(base_1d);
-   ux_bot.resize(local_size_x); ux_bot.reindexSelf(base_1d);
-   uz_bot.resize(local_size_x); uz_bot.reindexSelf(base_1d);
-   u_top.resize(local_size_x); u_top.reindexSelf(base_1d);
-   ux_top.resize(local_size_x); ux_top.reindexSelf(base_1d);
-   uz_top.resize(local_size_x); uz_top.reindexSelf(base_1d);
+   u_bot.resize(local_size_x); u_bot.reindexSelf(base_1d); u_bot=0;
+   ux_bot.resize(local_size_x); ux_bot.reindexSelf(base_1d); ux_bot=0;
+   uz_bot.resize(local_size_x); uz_bot.reindexSelf(base_1d); uz_bot=0;
+   u_top.resize(local_size_x); u_top.reindexSelf(base_1d); u_top=0;
+   ux_top.resize(local_size_x); ux_top.reindexSelf(base_1d); ux_top=0;
+   uz_top.resize(local_size_x); uz_top.reindexSelf(base_1d); uz_top=0;
 
    u_left.resize(size_z); u_right.resize(size_z);
+   u_left=0; u_right=0;
    ux_left.resize(size_z); ux_right.resize(size_z);
+   ux_left=0; ux_right=0;
    uz_left.resize(size_z); uz_right.resize(size_z);
+   uz_left=0; uz_right=0;
 
    /* Dz/Dzz don't have any local/global pairing */
    Dz.resize(size_z,3); Dzz.resize(size_z,3);
