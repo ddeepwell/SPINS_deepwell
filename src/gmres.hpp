@@ -221,10 +221,11 @@ template <class Controller> class GMRES_Solver {
          double RCOND = 1e-6;
 
          if (!lapack_workspace) {
+            assert(!lapack_iworkspace); // Assert that we're not leaking the iworkspace
             blitz::firstIndex ii; blitz::secondIndex jj;
             /* No workspace defined, so make a workspace-request call to DGELS in LAPACK */
             int M = num_its+1, 
-                N = num_its; 
+                N = num_its;
             double workzero;
             /* Set A to an identity matrix + 1 in lower-right-hand corner */
             hess = (ii == jj) || (ii-1 == jj) || (ii+1 == jj);
@@ -234,13 +235,20 @@ template <class Controller> class GMRES_Solver {
             /* Call to dgels, LAPACK, for workspace query */
 //            dgels_("N",&M,&N,&NRHS,hess.data(),&LDA,rhs_vec.data(),
 //                  &LDB,&workzero,&lwork_size,&INFO);
+            /* dgelsd_ requries an integer workspace, here lapack_iworkspace,
+             * and the documentation is unclear whether or not this is
+             * written to during a 'workspace query', which is being called
+             * here.  For safety's sake, allocate the lapack_iworkspace
+             * beforehand, since the size is known in advance.  Not doing so
+             * may be the cause of an error on Scinet systems. */
+            lapack_iworkspace = new int[11*M+3*int(1+log2(double(M)))*M];
+
             dgelsd_(&M,&N,&NRHS,hess.data(),&LDA,rhs_vec.data(),
                   &LDB, svd_vec.data(), &RCOND, &RANK, &workzero,
                  &lwork_size,lapack_iworkspace,&INFO); 
 //            fprintf(stderr,"Got work size %f\n",workzero);
             /* Allocate the workspace */
             lapack_workspace = new double[int(workzero)];
-            lapack_iworkspace = new int[11*M+3*int(1+log2(double(M)))*M];
             lwork_size = int(workzero);
          }
          hess = 0;
