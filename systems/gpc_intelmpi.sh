@@ -4,7 +4,7 @@
 
 CC=icc
 CXX=icpc
-LD=mpicxx -cxx=icpc
+LD="mpicxx -cxx=icpc"
 
 # System-specific compiler flags
 SYSTEM_CFLAGS=
@@ -26,7 +26,7 @@ EXTRA_OPTIM_LDFLAGS=
 # Library names/locations/flags for MPI-compilation.  This will
 # probably not be necessary on systems with a working mpicc
 # alias
-MPICXX=mpicxx -cxx=icpc
+MPICXX="mpicxx -cxx=icpc"
 MPI_CFLAGS="-DMPICH_SKIP_MPICXX"
 MPI_LIB=
 MPI_LIBDIR=
