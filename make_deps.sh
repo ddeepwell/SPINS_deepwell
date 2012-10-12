@@ -49,7 +49,7 @@ if [ $# -gt 0 ]; then
 else
    echo Guessing that system-specific variables are in systems/`hostname -s`.sh
    source systems/`hostname -s`.sh 
-   if [ ! $? ]; then echo "... but they're not"; exit 1; fi
+   if [ $? -ne 0 ]; then echo "... but they're not"; exit 1; fi
 fi
 
 # Current working directory
@@ -79,7 +79,7 @@ else
 		pushd lib && (make install > /dev/null) && popd  && \
 		pushd random && (make install > /dev/null) && popd && \
 	popd 
-   if [ ! $? ]; then
+   if [ $? -ne 0 ]; then
       echo "Could not compile/install Blitz"; exit 1
    fi
 	echo "Blitz++ built!"
@@ -94,7 +94,7 @@ else
 		wget http://belize.math.uwaterloo.ca/~csubich/redist/fftw-3.3.2.tar.gz
 	fi
 	(tar -xzvf fftw-3.3.2.tar.gz > /dev/null)
-   if [ ! $? ]; then
+   if [ 0 -ne $? ]; then
       echo "Untar of FFTW FAILED"; exit 1
    fi
 	pushd fftw-3.3.2
@@ -102,7 +102,7 @@ else
 		(make > /dev/null) && \
 		(make install-libLTLIBRARIES > /dev/null) && \
 		pushd api; (make install > /dev/null) && popd 
-	if [ ! $? ]; then 
+	if [ 0 -ne $? ]; then
       echo "Could not compile/install FFTW!"; exit 1;
    fi
 	popd
@@ -129,7 +129,7 @@ else
 	(tar -xzvf UFconfig-3.4.0.tar.gz;
 	 tar -xzvf UMFPACK.tar.gz;
 	 tar -xzvf AMD.tar.gz;) > /dev/null 
-   if [ ! $? ]; then
+   if [ 0 -ne $? ]; then
       echo "Could not untar UMFACK"; exit 1
    fi
 	
@@ -153,7 +153,7 @@ else
 	echo "Building AMD"
 	pushd AMD
 	make lib > /dev/null 
-   if [ ! $? ]; then
+   if [ 0 -ne $? ]; then
       echo "Could not make AMD"; exit 1
    fi
 	cp -v Include/* ../include/
@@ -163,7 +163,7 @@ else
 	pushd UMFPACK
 	echo "Building UMFPACK"
 	make library > /dev/null
-   if [ ! $? ]; then
+   if [ 0 -ne $? ]; then
       echo "Could not make UMFPACK"; exit 1
    fi
 	cp -v Include/* ../include/
@@ -183,7 +183,7 @@ else
    fi
    # Untar libbost
    tar -xzvf boost_1_51_0.tar.gz > /dev/null 
-   if [ ! $? ]; then
+   if [ 0 -ne $? ]; then
       echo "Could not untar libboost" && exit 1
    fi
 
@@ -223,7 +223,7 @@ else
                      --with-libraries=program_options \
                      --prefix="$CWD" &&
       ./b2 link=static && ./b2 link=static install) > /dev/null) 
-   if [ ! $? ]; then
+   if [ 0 -ne $? ]; then
       echo "Could not build libboost!" ; exit 1
    fi
    popd
