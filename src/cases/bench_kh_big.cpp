@@ -156,7 +156,6 @@ class helmholtz : public BaseCase {
          now, this function will do nothing. */
       void analysis(double time, DTArray & u, DTArray & v, DTArray & w,
             vector<DTArray *> & tracer, DTArray & pressure) {
-         /* If it is very close to the plot time, write data fields to disk */
          itercount++;
          if (itercount == 1) {
             now = MPI_Wtime();
@@ -165,8 +164,32 @@ class helmholtz : public BaseCase {
             next_bench = 10;
          }
          if (itercount == next_bench) {
+            // Calculate memory usage from the proc/self/statm file
+            int mem_size, mem_res, mem_share;
+            // Get the system page size -- often 4KB
+            int sys_pagesize = sysconf(_SC_PAGE_SIZE);
+            FILE * statm = fopen("/proc/self/statm","r");
+            assert(statm);
+            // Read in the total memory size, resident set size, and shared size
+            fscanf(statm,"%d %d %d",&mem_size,&mem_res,&mem_share);
+            fclose(statm);
+            // We mostly care about the resident set size, since that represents
+            // the true processor load.  Since any individual processor may be
+            // unrepresentative on account of MPI-Library weirdness and load
+            // balancing, calculate the total and max-per-process memory usage
+            double mem_total = pssum(double(mem_res)*sys_pagesize/1024.0); // results in kb
+            double mem_max = psmax(double(mem_res)*sys_pagesize/1024.0);
             then = now; now = MPI_Wtime();
-            if (master()) fprintf(stderr,"%d iterations complete in %gs (%gs per, %gs marginal)\n",itercount,now-start_time,(now-start_time)/itercount,(now-then)/(itercount-last_bench));
+            if (master()) fprintf(stderr,
+                  "%d iterations complete in %gs (%gs per, %gs marginal)\n" 
+                  "       [Mem: total %.2f MB, %.2f MB maximum/proc]\n",
+                  itercount,
+                  now-start_time, // cumulative time
+                  (now-start_time)/itercount, // average time
+                  (now-then)/(itercount-last_bench), // average since last writeout
+                  mem_total/1024.0, // Total memory (MB)
+                  mem_max/1024.0 // max-per-proc (MB)
+                  );
             last_bench = itercount;
             next_bench *= 2;
          }
@@ -178,24 +201,15 @@ class helmholtz : public BaseCase {
             write_array(*tracer[0],"rho",plot_number);
             last_plot = last_plot + plot_interval;
          }
-         // Also, calculate and write out useful information: maximum u, w, and t'
+         // This code is essentially dead code, but is left in because
+         // it accurately represents typical per-timestep analysis;
+         // removing it may affect performance results in an uneralistic way.
          double max_u = psmax(max(abs(u)));
          double max_w = psmax(max(abs(w)));
          double max_t = psmax(max(abs(*tracer[0])));
-         // Energetics: mean(u^2), mean(w^2), and mean(rho*h)
          double usq = pssum(sum(pow(u-0.5*delta_u*tanh((zz(kk)-0.5)/dz_u),2)))/(NX*NZ);
          double wsq = pssum(sum(w*w))/(NX*NZ);
-         double rhogh = pssum(sum(*tracer[0]*g*zz(kk)));/*
-         if (master()) fprintf(stderr,"%.2f: %.2g %.2g %.2g\n",time,max_u,max_w,max_t);
-         if (master()) {
-            FILE * vels_output = fopen("velocity_output.txt","a");
-            if (vels_output == 0) {
-               fprintf(stderr,"Unable to open velocity_output.txt for writing\n");
-               exit(1);
-            }
-            fprintf(vels_output,"%.16g %.16g %.16g %.16g %.16g %.16g %.16g\n",time,max_u,max_w,max_t,usq,wsq,rhogh);
-            fclose(vels_output);
-         }*/
+         double rhogh = pssum(sum(*tracer[0]*g*zz(kk)));      
       }
 
       helmholtz():
@@ -252,4 +266,3 @@ int main(int argc, char ** argv) {
    MPI_Finalize(); // Cleanly exit MPI
    return 0; // End the program
 }
-
