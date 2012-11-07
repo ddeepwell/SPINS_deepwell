@@ -19,7 +19,7 @@ DEBUG_LDFLAGS=
 
 # Compiler flags for optimization
 OPTIM_CFLAGS="-O3 -ffast-math -msse"
-OPTIM_LDFLAGS=
+OPTIM_LDFLAGS=$OPTIM_CFLAGS
 
 # Compiler flags for extra optimization, such as -ip -ipo on icc
 EXTRA_OPTIM_CFLAGS=

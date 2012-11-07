@@ -17,11 +17,11 @@ DEBUG_LDFLAGS=
 
 # Compiler flags for optimization
 OPTIM_CFLAGS="-O3 -fp-model fast=2"
-OPTIM_LDFLAGS=
+OPTIM_LDFLAGS=$OPTIM_CFLAGS
 
 # Compiler flags for extra optimization, such as -ip -ipo on icc
 EXTRA_OPTIM_CFLAGS="-ip -ipo"
-EXTRA_OPTIM_LDFLAGS="-ip -ipo"
+EXTRA_OPTIM_LDFLAGS=$EXTRA_OPTIM_CFLAGS
 
 # Library names/locations/flags for MPI-compilation.  This will
 # probably not be necessary on systems with a working mpicc
