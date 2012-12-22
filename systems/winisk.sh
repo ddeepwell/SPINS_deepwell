@@ -27,9 +27,9 @@ EXTRA_OPTIM_LDFLAGS=$EXTRA_OPTIM_CFLAGS
 # probably not be necessary on systems with a working mpicc
 # alias
 MPI_CFLAGS=
-MPI_LIB=-lmpi
-MPI_LIBDIR=
-MPI_INCDIR=
+MPI_LIB="-lmpi -lmpi++"
+MPI_LIBDIR=-L/opt/sgi/mpt/mpt-2.01/lib
+MPI_INCDIR=-I/opt/sgi/mpt/mpt-2.01/include
 
 # Library names/locations for LAPACK
 LAPACK_LIB=-lscs
