@@ -33,7 +33,7 @@ MPI_LIBDIR=
 MPI_INCDIR=
 
 # Library names/locations for LAPACK
-LAPACK_LIB="-llapack"
+LAPACK_LIB="-llapack -lblas"
 LAPACK_LIBDIR=
 LAPACK_INCDIR=
 

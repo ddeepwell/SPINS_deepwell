@@ -40,7 +40,7 @@ INCLUDE_DIRS := -I../include $(MPI_INCDIR) $(LAPACK_INCDIR) $(BLITZ_INCDIR) $(FF
 CFLAGS := $(CFLAGS) $(INCLUDE_DIRS)
 
 LIB_DIRS := -L../lib $(MPI_LIBDIR) $(LAPACK_LIBDIR) $(BLITZ_LIBDIR) $(FFTW_LIBDIR) $(UMF_LIBDIR)
-LDLIBS := -lfftw3 $(MPI_LIB) $(LAPACK_LIB) -lblitz -lm -lstdc++ -lumfpack -lamd -lboost_program_options
+LDLIBS := -lfftw3 $(MPI_LIB) -lumfpack -lamd -lboost_program_options $(LAPACK_LIB) -lblitz -lm -lstdc++ 
 LDFLAGS := $(LDFLAGS) $(LIB_DIRS) 
 
 .PHONY: all 
