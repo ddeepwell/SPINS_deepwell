@@ -35,7 +35,7 @@ string xgrid_filename,
        tracer_filename;
 
 // Physical parameters
-double g, rot_f, vel_mu, dens_kappa, tracer_kappa;
+double g, rot_f, vel_mu, dens_kappa, tracer_kappa, tracer_g;
 
 // Writeout parameters
 double final_time, plot_interval;
@@ -405,7 +405,10 @@ class userControl : public BaseCase {
          u_f = -rot_f * v; v_f = +rot_f * u;
          w_f = -g*((*tracers[0]));
          *(tracers_f[0]) = 0;
-         if (tracer) *(tracers_f[1]) = 0;
+         if (tracer) {
+            *(tracers_f[1]) = 0;
+            w_f = w_f - tracer_g*((*tracers[1]));
+         }
       }
 
       userControl() :
@@ -480,10 +483,11 @@ int main(int argc, char ** argv) {
    add_option("w_file",&w_filename,"W-velocity filename");
    add_option("rho_file",&rho_filename,"Rho (density) filename");
 
-   option_category("Passive tracer");
-   add_switch("enable_tracer",&tracer,"Enable evolution of a passive tracer");
+   option_category("Second tracer");
+   add_switch("enable_tracer",&tracer,"Enable evolution of a second tracer");
    add_option("tracer_file",&tracer_filename,"Tracer filename");
    add_option("tracer_kappa",&tracer_kappa,"Diffusivity of tracer");
+   add_option("tracer_gravity",&tracer_g,0.0,"Gravity for the second tracer");
 
    option_category("Physical parameters");
    add_option("g",&g,9.81,"Gravitational acceleration");
