@@ -11,7 +11,7 @@ MPICXX=mpic++
 # System-specific compiler flags
 SYSTEM_CFLAGS="-m64"
 SYSTEM_CXXFLAGS="-Wno-deprecated"
-SYSTEM_LDFLAGS=-m64
+SYSTEM_LDFLAGS="-m64"
 
 # Compiler flags for debugging
 DEBUG_CFLAGS="-g -DBZ_DEBUG"
@@ -33,6 +33,9 @@ MPI_LIB=
 MPI_LIBDIR=
 MPI_INCDIR=
 
+# Options for building boost
+BOOST_OPTIONS="cxxflags=-m64"
+
 # Library names/locations for LAPACK
 LAPACK_LIB="-framework Accelerate"
 LAPACK_LIBDIR=
@@ -42,10 +45,13 @@ LAPACK_INCDIR=
 # or compiled-with-this-package version
 BLITZ_LIBDIR=
 BLITZ_INCDIR=
+BLITZ_OPTIONS="CXX=g++ -m64"
 
 # Library locations for fftw
 FFTW_LIBDIR=
 FFTW_INCDIR=
+# Force FFTW to compile in 64-bit mode
+FFTW_OPTIONS='CFLAGS=-m64'
 
 # Library locations for UMFPACK
 UMF_INCDIR=

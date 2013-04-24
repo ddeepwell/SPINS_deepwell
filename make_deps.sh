@@ -9,12 +9,12 @@
 # This is a C++ "meta-template library" for arrays that allows
 # manipulation of multidimensional arrays in C++ code with a
 # MATLAB-like syntax
-BUILD_BLITZ=no
+BUILD_BLITZ=yes
 
 # fftw -- www.fftw.org
 # This is a self-contained library for high-performance Fast
 # Fourier Transforms
-BUILD_FFTW=no
+BUILD_FFTW=yes
 
 # UMFPACK -- www.cise.ufl.edu/research/sparse/umfpack
 # AMD     -- www.cise.ufl.edu/research/sparse/amd/
@@ -30,7 +30,7 @@ BUILD_UMFPACK=yes
 # older versions of libboost do not have the program_options
 # library.
 
-BUILD_BOOST=no
+BUILD_BOOST=yes
 
 # Read in the appropriate system script.  If none is specified on the
 # command line, guess based on the hostname
@@ -73,7 +73,7 @@ else
 	fi
 	(tar -xzvf blitz_2010.tgz > /dev/null) || (echo "Untar of Blitz FAILED"; exit 1);
 	pushd blitz
-	(./configure --prefix="$CWD" --disable-fortran > /dev/null) && \
+	(./configure --prefix="$CWD" --disable-fortran "${BLITZ_OPTIONS}" > /dev/null) && \
 		(make lib > /dev/null) && \
 		pushd blitz && (make install > /dev/null) && popd  && \
 		pushd lib && (make install > /dev/null) && popd  && \
@@ -221,8 +221,8 @@ else
 
    ( (./bootstrap.sh $BOOST_TOOLSET_OPTION \
                      --with-libraries=program_options \
-                     --prefix="$CWD" &&
-      ./b2 link=static && ./b2 link=static install) > /dev/null) 
+                     --prefix="$CWD"  &&
+      ./b2 link=static ${BOOST_OPTIONS} && ./b2 link=static ${BOOST_OPTIONS} install) > /dev/null) 
    if [ 0 -ne $? ]; then
       echo "Could not build libboost!" ; exit 1
    fi
