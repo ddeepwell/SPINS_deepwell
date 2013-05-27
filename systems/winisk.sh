@@ -16,7 +16,7 @@ DEBUG_CFLAGS="-g -DBZ_DEBUG"
 DEBUG_LDFLAGS=
 
 # Compiler flags for optimization
-OPTIM_CFLAGS="-O3 -fp-model fast=2"
+OPTIM_CFLAGS="-O3 -fp-model fast=2 -ftz"
 OPTIM_LDFLAGS=$OPTIM_CFLAGS
 
 # Compiler flags for extra optimization, such as -ip -ipo on icc
@@ -45,7 +45,7 @@ BLITZ_INCDIR=
 FFTW_LIBDIR=
 FFTW_INCDIR=
 # Have to disable SSE2 on itanium machines like winisk/kazan
-FFTW_OPTIONS="--disable-sse2"
+FFTW_OPTIONS=(--disable-sse2 CFLAGS=${OPTIM_CFLAGS[*]})
 
 # Library locations for UMFPACK
 UMF_INCDIR=

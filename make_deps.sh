@@ -98,7 +98,10 @@ else
       echo "Untar of FFTW FAILED"; exit 1
    fi
 	pushd fftw-3.3.2
-	(./configure --prefix="$CWD" --disable-fortran --enable-sse2 $FFTW_OPTIONS > /dev/null) && \
+   # The "${FFTW_OPTIONS[@]}" syntax expands FFTW_OPTIONS as an array variable;
+   # this allows for multi-word arguments like 'CFLAGS="-O3 --fast-math"' to
+   # work properly as a single argument from configure's perspective.
+	(./configure --prefix="$CWD" --disable-fortran --enable-sse2 "${FFTW_OPTIONS[@]}" CC=$CC > /dev/null) && \
 		(make > /dev/null) && \
 		(make install-libLTLIBRARIES > /dev/null) && \
 		pushd api; (make install > /dev/null) && popd 
