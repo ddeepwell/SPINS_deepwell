@@ -64,6 +64,12 @@ template <class T>
          fprintf(stderr,"The error was: %d, %s\n",errno,strerror(errno));
       } 
 
+      // Place an MPI barrier here to make sure that all processes have
+      // read the file before continuing.  This prevents a race condition
+      // if the file is supposed to be overwritten later, where a late-
+      // to-the-party process might open up the replacement file.
+      MPI_Barrier(MPI_COMM_WORLD);
+
       return retarray;
       
    }
