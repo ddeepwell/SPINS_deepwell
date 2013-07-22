@@ -74,7 +74,7 @@ class userControl : public BaseCase {
       }
 
       void analysis(double time, DTArray & u, DTArray & v, DTArray & w,
-            vector<DTArray *> tracer) {
+            vector<DTArray *> tracer, DTArray & pressure) {
          /* Write out velocities */
          bool plotted = false;
          itercount++;
