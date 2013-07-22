@@ -1,16 +1,31 @@
 #ifndef TARRAY_HPP // Prevent double inclusion
 #define TARRAY_HPP 1
 #include <blitz/array.h>
+
+// Beginning with the C++-0x standard, the GNU hash_map
+// extension is deprecated.  However, C++-0x is not yet
+// fully supported by default with gcc, requiring an
+// additional compile-time flag, so this hash_map cannot
+// yet be simply replaed with std::unordered_map.  Instead,
+// let's undefine __DEPRECATED
+#ifdef __DEPRECATED
+   #define _OLD_DEPRECATED
+   #undef __DEPRECATED
+#endif
 #include <ext/hash_map>
+#ifdef _OLD_DEPRECATED
+   #define __DEPRECATED
+#endif
+
 #include <fftw3.h>
 #include <complex>
 #include "Plan_holder.hpp"
 
-using __gnu_cxx::hash_map;
-using __gnu_cxx::hash;
 
 namespace TArrayn {
 
+using __gnu_cxx::hash_map;
+using __gnu_cxx::hash;
 using std::complex;
 using blitz::Array;
 using blitz::TinyVector;

@@ -22,7 +22,7 @@ extern "C" {
       extern void dgbtrf_(int * m, int * n, int * kl, int * ku,
                            double * ab, int * ldab, int  * ipiv, 
                            int * info);
-      extern void dgbtrs_(char * trans, int * n, int * kl, int * ku,
+      extern void dgbtrs_(const char * trans, int * n, int * kl, int * ku,
                            int * nrhs, double * ab, int * ldab,
                            int * ipiv, double * b, int * ldb, 
                            int * info);

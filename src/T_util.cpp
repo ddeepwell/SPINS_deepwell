@@ -766,7 +766,7 @@ void write_reader(Array<double, 3> const & ar, const string basename, bool seq, 
 //      orderings[ar.ordering(secondDim)] = secondDim;
 //      orderings[ar.ordering(thirdDim)] = thirdDim;
 //   }
-   char* endianess; // Endianess check
+   const char* endianess; // Endianess check
    {
       char EndianCheck[2] = {1, 0};
       short x = *(reinterpret_cast<short *>(EndianCheck));

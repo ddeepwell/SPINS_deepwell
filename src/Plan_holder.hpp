@@ -2,7 +2,14 @@
 #ifndef PLAN_HOLDER_HPP // prevent double inclusion
 #define PLAN_HOLDER_HPP 1
 
+#ifdef __DEPRECATED
+   #define _OLD_DEPRECATED
+   #undef __DEPRECATED
+#endif
 #include <ext/hash_map>
+#ifdef _OLD_DEPRECATED
+   #define __DEPRECATED
+#endif
 #include <vector>
 #include <assert.h>
 #include <iostream>
