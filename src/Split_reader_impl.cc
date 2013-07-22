@@ -11,6 +11,7 @@
 #include <unistd.h> // For close
 #include <errno.h> // For errors
 #include <stdio.h>
+#include <mpi.h>
 
 template <class T>
    blitz::Array<T,2> * read_2d_slice(const char * filename,
