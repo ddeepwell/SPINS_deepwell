@@ -10,7 +10,7 @@ MPICXX=mpic++
 
 # System-specific compiler flags
 SYSTEM_CFLAGS="-m64"
-SYSTEM_CXXFLAGS="-Wno-deprecated"
+SYSTEM_CXXFLAGS=
 SYSTEM_LDFLAGS="-m64"
 
 # Compiler flags for debugging

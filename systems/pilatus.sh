@@ -8,7 +8,7 @@ CXX=g++
 LD=g++
 
 # System-specific compiler flags
-SYSTEM_CFLAGS="-Wno-deprecated"
+SYSTEM_CFLAGS=
 SYSTEM_LDFLAGS=
 
 # Compiler flags for debugging

@@ -9,7 +9,7 @@ LD=mpicc
 # System-specific compiler flags
 SYSTEM_CFLAGS=
 SYSTEM_LDFLAGS=
-SYSTEM_CXXFLAGS="-Wno-deprecated"
+SYSTEM_CXXFLAGS=
 
 # Compiler flags for debugging
 DEBUG_CFLAGS="-g -DBZ_DEBUG"
