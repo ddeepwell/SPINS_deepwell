@@ -8,7 +8,7 @@ CXX=icpc
 LD=icpc
 
 # System-specific compiler flags
-SYSTEM_CFLAGS="-Wno-deprecated -Wall -wd981 -wd444 -wd1572 -wd383 -wd869"
+SYSTEM_CFLAGS="-Wall -wd279 -wd383 -wd444 -wd869 -wd981 -wd1418 -wd1419 -wd1572"
 SYSTEM_LDFLAGS=
 
 # Compiler flags for debugging

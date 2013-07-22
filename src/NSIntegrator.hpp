@@ -234,9 +234,9 @@ namespace NSIntegrator {
                   fprintf(stderr, "%d tracers\n",(int) tracers.size());
                   for (unsigned int k = 0; k < tracers.size(); k++) {
                      if (t_diffusivity[k] == 0) {
-                        fprintf(stderr,"   tracer %d nondiffusive\n",k);
+                        fprintf(stderr,"   tracer %u nondiffusive\n",k);
                      } else
-                        fprintf(stderr,"   tracer %d diffusivity %g\n",k,t_diffusivity[k]);
+                        fprintf(stderr,"   tracer %u diffusivity %g\n",k,t_diffusivity[k]);
                   }
                   if (visco == 0) {
                      fprintf(stderr,"Inviscid problem\n");
