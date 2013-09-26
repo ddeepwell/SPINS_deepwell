@@ -198,7 +198,7 @@ class userControl : public BaseCase {
             write_array(*tracer[0],"rho",plotnum);
             write_array(pressure,"p",plotnum);
             // If we have a passive tracer, write it out as well
-            if (tracer->size() > 1) {
+            if (tracer.size() > 1) {
                write_array(*tracer[1],"tracer",plotnum);
             }
             lastplot = itercount;

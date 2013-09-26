@@ -204,7 +204,7 @@ class userControl : public BaseCase {
             write_array(*tracer[0],"T",plotnum);
             write_array(*tracer[1],"S",plotnum);
             // If we have a dye constituent, write it out
-            if (tracer->size() > 2) {
+            if (tracer.size() > 2) {
                write_array(*tracer[2],"dye",plotnum);
             }
             write_array(pressure,"p",plotnum);
