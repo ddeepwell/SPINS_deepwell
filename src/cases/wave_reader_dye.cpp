@@ -2,6 +2,10 @@
    waves, with input data and configuration provided at runtime
    via a configuration file. */
 
+/* Compared to the "normal" wave_reader, this code is specialized
+   to two active tracers (heat and salt content) plus one optional
+   passive tracer (dye) */
+
 #include "../Science.hpp"
 #include "../TArray.hpp"
 #include "../Par_util.hpp"
@@ -31,11 +35,12 @@ string xgrid_filename,
        u_filename,
        v_filename,
        w_filename,
-       rho_filename,
-       tracer_filename;
+       T_filename,
+       S_filename,
+       dye_filename;
 
 // Physical parameters
-double g, rot_f, vel_mu, dens_kappa, tracer_kappa, tracer_g;
+double g, rot_f, vel_mu, kappa_T, kappa_S,kappa_dye;
 
 // Writeout parameters
 double final_time, plot_interval;
@@ -103,8 +108,9 @@ class userControl : public BaseCase {
          return vel_mu;
       }
       double get_diffusivity(int t) const {
-         if (t == 0) return dens_kappa; 
-         if (t == 1) return tracer_kappa;
+         if (t == 0) return kappa_T; 
+         if (t == 1) return kappa_S;
+         if (t == 2) return kappa_dye;
          else assert(0 && "Invalid tracer number!");
       }
 
@@ -144,10 +150,10 @@ class userControl : public BaseCase {
          write_array(zg,"zgrid"); write_reader(zg,"zgrid",false);
       }
 
-      /* We have an active tracer, namely density */
-      int numActive() const { return 1; }
+      /* We have two active tracers, namely T and S */
+      int numActive() const { return 2; }
 
-      /* We're given a passive tracer to advect */
+      /* We're potentially given a passive tracer to advect */
       int numPassive() const {
          if (tracer) return 1;
          else return 0;
@@ -195,12 +201,13 @@ class userControl : public BaseCase {
             if (Ny > 1 || rot_f != 0)
                write_array(v,"v",plotnum);
             write_array(w,"w",plotnum);
-            write_array(*tracer[0],"rho",plotnum);
-            write_array(pressure,"p",plotnum);
-            // If we have a passive tracer, write it out as well
-            if (tracer->size() > 1) {
-               write_array(*tracer[1],"tracer",plotnum);
+            write_array(*tracer[0],"T",plotnum);
+            write_array(*tracer[1],"S",plotnum);
+            // If we have a dye constituent, write it out
+            if (tracer->size() > 2) {
+               write_array(*tracer[2],"dye",plotnum);
             }
+            write_array(pressure,"p",plotnum);
             lastplot = itercount;
             if (master()) {
                FILE * plottimes = fopen("plot_times.txt","a");
@@ -331,88 +338,127 @@ class userControl : public BaseCase {
          write_array(w,"w",plotnum);
          write_reader(w,"w",true);
       }
-      void init_tracer(int t_num, DTArray & rho) {
-         if (master()) fprintf(stderr,"Initializing tracer %d\n",t_num);
-         /* Initialize the density and take the opportunity to write out the grid */
-         if (t_num == 0) {
-            if (restarting) {
-               /* Restarting, so build the proper filenames and load
-                  the data into u, v, w */
-               char filename[100];
-               /* rho */
-               snprintf(filename,100,"rho.%d",restart_sequence);
-               if (master()) fprintf(stdout,"Reading rho from %s\n",filename);
-               read_array(rho,filename,Nx,Ny,Nz);
-               return;
+      // Since we know we have at least two tracers (T and S), we can use
+      // the full init_tracers(vector<DTArray *> & tracers) to initialize
+      // everything at once.
+
+      void init_tracers(vector<DTArray *> & in_tracers) {
+         /* We'll define tracer number 0 to be T, tracer number 1 to be S,
+            and tracer number 2 (if present) to be passive */
+
+         if (master()) fprintf(stderr,"Initializing tracers\n");
+         // First, make sure that the vector we're given has the expected size
+         assert(numtracers() == int(in_tracers.size()));
+         assert(numtracers() >= 2);
+
+         // Define some convenient references
+         DTArray & T = *in_tracers[0];
+         DTArray & S = *in_tracers[1];
+         // Since the "dye" may not always be present, we will -not- define
+         // a convenient reference here.  That will act as a reminder to check
+         // numtracers() at appropriate points.
+
+         /* Initialize the tracers and take the opportunity to write out the grid */
+         if (restarting) {
+            /* Restarting, so build the proper filenames and load
+               the data into u, v, w */
+            char filename[100];
+            /* T */
+            snprintf(filename,100,"T.%d",restart_sequence);
+            if (master()) fprintf(stdout,"Reading T from %s\n",filename);
+            read_array(T,filename,Nx,Ny,Nz);
+            snprintf(filename,100,"S.%d",restart_sequence);
+            if (master()) fprintf(stdout,"Reading S from %s\n",filename);
+            read_array(S,filename,Nx,Ny,Nz);
+            // More than two tracers means we have dye
+            if (numtracers() > 2) { 
+               snprintf(filename,100,"dye.%d",restart_sequence);
+               if (master()) fprintf(stdout,"Reading dye from %s\n",filename);
+               read_array(*in_tracers[2],filename,Nx,Ny,Nz);
             }
-            switch (input_data_types) {
-               case MATLAB:
-                  if (master())
-                     fprintf(stderr,"reading matlab-type rho (%d x %d) from %s\n",
-                           Nx,Nz,rho_filename.c_str());
-                  read_2d_slice(rho,rho_filename.c_str(),Nx,Nz);
-                  break;
-               case CTYPE:
-                  if (master())
-                     fprintf(stderr,"reading ctype rho (%d x %d) from %s\n",
-                           Nx,Nz,rho_filename.c_str());
-                  read_2d_restart(rho,rho_filename.c_str(),Nx,Nz);
-                  break;
-               case FULL3D:
-                  if (master())
-                     fprintf(stderr,"reading rho (%d x %d x %d) from %s\n",
-                           Nx,Ny,Nz,rho_filename.c_str());
-                  read_array(rho,rho_filename.c_str(),Nx,Ny,Nz);
-                  break;
-            }
-            write_array(rho,"rho",plotnum);
-            write_reader(rho,"rho",true);
-            write_reader(rho,"p",true);
-         } else if (t_num == 1) {
-            if (restarting) {
-               char filename[100];
-               /* rho */
-               snprintf(filename,100,"tracer.%d",restart_sequence);
-               if (master()) fprintf(stdout,"Reading tracer from %s\n",filename);
-               read_array(rho,filename,Nx,Ny,Nz);
-               return;
-            }
-            switch (input_data_types) {
-               case MATLAB:
-                  if (master())
-                     fprintf(stderr,"reading matlab-type tracer (%d x %d) from %s\n",
-                           Nx,Nz,tracer_filename.c_str());
-                  read_2d_slice(rho,tracer_filename.c_str(),Nx,Nz);
-                  break;
-               case CTYPE:
-                  if (master())
-                     fprintf(stderr,"reading ctype tracer (%d x %d) from %s\n",
-                           Nx,Nz,tracer_filename.c_str());
-                  read_2d_restart(rho,tracer_filename.c_str(),Nx,Nz);
-                  break;
-               case FULL3D:
-                  if (master())
-                     fprintf(stderr,"reading tracer (%d x %d x %d) from %s\n",
-                           Nx,Ny,Nz,tracer_filename.c_str());
-                  read_array(rho,tracer_filename.c_str(),Nx,Ny,Nz);
-                  break;
-            }
+            // If we're restarting, then the job's done -- the grid files and
+            // readers are presumed to already exist.
+            return;
          }
-         write_array(rho,"tracer",plotnum);
-         write_reader(rho,"tracer",true);
+         // If we're not restarting, we have to call different reader functions
+         // depending on the format of input data.
+         switch (input_data_types) {
+            case MATLAB:
+               if (master())
+                  fprintf(stderr,"reading matlab-type T (%d x %d) from %s\n",
+                        Nx,Nz,T_filename.c_str());
+               read_2d_slice(T,T_filename.c_str(),Nx,Nz);
+               if (master())
+                  fprintf(stderr,"reading matlab-type S (%d x %d) from %s\n",
+                        Nx,Nz,S_filename.c_str());
+               read_2d_slice(S,S_filename.c_str(),Nx,Nz);
+               if (numtracers() > 2) {
+                  if (master())
+                     fprintf(stderr,"reading matlab-type dye (%d x %d) from %s\n",
+                           Nx,Nz,dye_filename.c_str());
+                  read_2d_slice(*in_tracers[2],dye_filename.c_str(),Nx,Nz);
+               }
+               break;
+            case CTYPE:
+               if (master())
+                  fprintf(stderr,"reading ctype-type T (%d x %d) from %s\n",
+                        Nx,Nz,T_filename.c_str());
+               read_2d_restart(T,T_filename.c_str(),Nx,Nz);
+               if (master())
+                  fprintf(stderr,"reading ctype-type S (%d x %d) from %s\n",
+                        Nx,Nz,S_filename.c_str());
+               read_2d_restart(S,S_filename.c_str(),Nx,Nz);
+               if (numtracers() > 2) {
+                  if (master())
+                     fprintf(stderr,"reading ctype-type dye (%d x %d) from %s\n",
+                           Nx,Nz,dye_filename.c_str());
+                  read_2d_restart(*in_tracers[2],dye_filename.c_str(),Nx,Nz);
+               }
+               break;
+            case FULL3D:
+               if (master())
+                  fprintf(stderr,"reading 3D T (%d x %d x %d) from %s\n",
+                        Nx,Ny,Nz,T_filename.c_str());
+               read_array(T,T_filename.c_str(),Nx,Ny,Nz);
+                  fprintf(stderr,"reading 3D S (%d x %d x %d) from %s\n",
+                        Nx,Ny,Nz,S_filename.c_str());
+               read_array(S,S_filename.c_str(),Nx,Ny,Nz);
+               if (numtracers() > 2) {
+                  if (master())
+                     fprintf(stderr,"reading 3D dye (%d x %d x %d) from %s\n",
+                           Nx,Ny,Nz,dye_filename.c_str());
+                  read_array(*in_tracers[3],dye_filename.c_str(),Nx,Ny,Nz);
+               }
+               break;
+         }
+         write_array(T,"T",plotnum);
+         write_array(S,"S",plotnum);
+         write_reader(T,"T",true);
+         write_reader(S,"S",true);
+         if (numtracers() > 2) {
+            write_array(*in_tracers[2],"dye",plotnum);
+            write_reader(*in_tracers[2],"dye",true);
+         }
+         /* Write out the pressure reader, but we don't have a pressure field
+            yet; use T as a proxy because it will have the same size and memory
+            shape as pressure */
+         write_reader(T,"p",true);
       }
 
       void forcing(double t, DTArray & u, DTArray & u_f,
           DTArray & v, DTArray & v_f, DTArray & w, DTArray & w_f,
           vector<DTArray *> & tracers, vector<DTArray *> & tracers_f) {
+         DTArray & heat = *tracers[0];
+         DTArray & salt = *tracers[1];
          /* Velocity forcing */
          u_f = -rot_f * v; v_f = +rot_f * u;
-         w_f = -g*((*tracers[0]));
+         w_f = -g*eqn_of_state(heat,salt)/1000.0;// rho_0 is 1000.0
+         /* Heat and Salt forcing */
          *(tracers_f[0]) = 0;
-         if (tracer) {
-            *(tracers_f[1]) = 0;
-            w_f = w_f - tracer_g*((*tracers[1]));
-         }
+         *(tracers_f[1]) = 0;
+         // If it exists, there is zero forcing for dye
+         if (numtracers() > 2)
+            *(tracers_f[2]) = 0;
       }
 
       userControl() :
@@ -482,22 +528,23 @@ int main(int argc, char ** argv) {
          "   CTYPE:  \tColumn-major 2D arrays (including that output by 2D SPINS runs)\n"
          "   FULL:   \tColumn-major 3D arrays; implies CTYPE for grid mapping if enabled");
 
-   add_option("u_file",&u_filename,"U-velocity filename");
+   add_option("u_fila",&u_filename,"U-velocity filename");
    add_option("v_file",&v_filename,"","V-velocity filename");
    add_option("w_file",&w_filename,"W-velocity filename");
-   add_option("rho_file",&rho_filename,"Rho (density) filename");
+   add_option("T_file",&T_filename,"T (temperature) filename");
+   add_option("S_file",&T_filename,"S (salinity) filename");
 
-   option_category("Second tracer");
-   add_switch("enable_tracer",&tracer,"Enable evolution of a second tracer");
-   add_option("tracer_file",&tracer_filename,"Tracer filename");
-   add_option("tracer_kappa",&tracer_kappa,"Diffusivity of tracer");
-   add_option("tracer_gravity",&tracer_g,0.0,"Gravity for the second tracer");
+   option_category("Passive tracer");
+   add_switch("enable_dye",&tracer,"Enable evolution of a passive tracer (dye)");
+   add_option("dye_file",&dye_filename,"Dye filename");
+   add_option("kappa_dye",&kappa_dye,"Diffusivity of dye");
 
    option_category("Physical parameters");
    add_option("g",&g,9.81,"Gravitational acceleration");
    add_option("rot_f",&rot_f,0.0,"Coriolis force term");
    add_option("visc",&vel_mu,0.0,"Kinematic viscosity");
-   add_option("kappa",&dens_kappa,0.0,"Thermal diffusivity");
+   add_option("kappa_T",&kappa_T,0.0,"Thermal diffusivity");
+   add_option("kappa_S",&kappa_S,0.0,"Salt diffusivity");
 
    add_option("perturbation",&perturb,0.0,"Veloc\tity perturbation (multiplicative white noise) applied to read-in data.");
 
