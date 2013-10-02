@@ -76,6 +76,7 @@ cases/%.x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegr
 cases/%_x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-%.o : %.cpp	*.hpp
+%.o: %.cpp	*.hpp
 	$(MPICXX) $(CFLAGS) -o $@ -c $< 
 
+.SECONDARY:
