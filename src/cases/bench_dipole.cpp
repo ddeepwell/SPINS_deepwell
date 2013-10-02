@@ -54,7 +54,7 @@ class userControl : public BaseCase {
 
       // A no-slip box, with periodic spanwise
       DIMTYPE type_x() const { return NO_SLIP; }
-      DIMTYPE type_y() const { return PERIODIC; }
+      DIMTYPE type_y() const { return FREE_SLIP; }
       DIMTYPE type_z() const { return NO_SLIP; }
 
       // Use a grid-scale Rynolds-number of 1250
@@ -64,7 +64,7 @@ class userControl : public BaseCase {
 
       // Give a 2x1x2 box
       double length_x() const { return 2; }
-      double length_y() const { return 1; }
+      double length_y() const { return 0.1; }
       double length_z() const { return 2; }
 
       int size_x() const { return szx; }
@@ -225,12 +225,12 @@ class userControl : public BaseCase {
             // Why add noise only in 3D?  First, comparison with Clercx and Bruneu
             // [2006] uses noise-free runs.  Secondly, the instability triggered
             // here is three-dimensional.
-            int myrank;
-            MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
             /* Add random noise about 3.5 orders of magnitude below dipole */
             Normal<double> rnd(0,1);
-            rnd.seed(myrank);
             for (int i = u.lbound(firstDim); i<= u.ubound(firstDim); i++) {
+               // Seed based on i-index, so that runs with different numbers
+               // of processors will have the same "random" perturbation.
+               rnd.seed(i);
                for (int j = u.lbound(secondDim); j<= u.ubound(secondDim); j++) {
                   for (int k = u.lbound(thirdDim); k<= u.ubound(thirdDim); k++) {
                      u(i,j,k) += 1e-3*rnd.random();
@@ -267,9 +267,9 @@ class userControl : public BaseCase {
          v_f = 0;
          w_f = 0;
       }
-      userControl(int s):
+      userControl(int s, int sy):
          // Setup a 2D run, of size S x 1 x S
-         szx(s), szy(1), szz(s),
+         szx(s), szy(sy), szz(s),
          // Write out fields every 0.005 timeunits for detailed graphics
          plotnum(0), plot_interval(.005), 
          nextplot(plot_interval), lastplot(0),
@@ -296,11 +296,14 @@ int main(int argc, char ** argv) {
    MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
    // Read in the grid size from the command-line
    int grid_size = 0;
+   int grid_ysize = 0;
    if (argc > 1) grid_size = atoi(argv[1]);
+   if (argc > 2) grid_ysize = atoi(argv[2]);
    // And use a sensible default if it's not given or invalid
    if (grid_size <= 0) grid_size = 64;
-   if (master()) fprintf(stderr,"No-slip dipole on %d x %d grid running on %d processors\n",grid_size,grid_size,nprocs);
-   userControl mycode(grid_size);
+   if (grid_ysize <= 0) grid_ysize = 1;
+   if (master()) fprintf(stderr,"No-slip dipole on %d x %d x %d grid running on %d processors\n",grid_size,grid_ysize,grid_size,nprocs);
+   userControl mycode(grid_size, grid_ysize);
    start_time = MPI_Wtime();
    FluidEvolve<userControl> ppois(&mycode);
    ppois.initialize();
