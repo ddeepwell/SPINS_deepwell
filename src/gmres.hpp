@@ -218,7 +218,7 @@ template <class Controller> class GMRES_Solver {
          /* Constants for the LAPACK call */
          int LDA = num_its+1, LDB = num_its + 1, NRHS = 1, INFO = 0;
          int RANK;
-         double RCOND = 1e-6;
+         double RCOND = 1e-9;
 
          if (!lapack_workspace) {
             assert(!lapack_iworkspace); // Assert that we're not leaking the iworkspace
