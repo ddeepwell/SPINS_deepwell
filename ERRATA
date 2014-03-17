@@ -1,0 +1,15 @@
+ERRATA: Known bugs or mis-features in SPINS that are confusing and should ultimately be resolved,
+but in the meantime are low-priority.
+
+Design: The fluid velocity is only weakly incompressible near solid, no-slip boundaries.  This is
+due to the way the pressure projection is handled, in that after-advection-before-diffusion velocities
+are used to calculate pressure, then the no-slip/viscosity conditions are applied.  A workaround is
+possible via a modified (extrapolated) pressure boundary condition, but there has yet been no need
+to go that far.  Velocities are incompressible up to O(delta t) in a thin region near the boundary,
+which decays exponentially into the interior.  As a result, near-boundary tracers may not be conserved
+because they use u dot grad T formulation for their advection; use of div (T*u) has conservation but
+can introduce new max/min, which is a more visible problem.
+
+Grid parallelism: The code does not support MPI configurations where Nproc > min(Nx,Ny), and attempting
+such a configuration will cause an assertion error.  The error-checking here should be better-presented,
+because the cause of the error isn't necessarily obvious.
