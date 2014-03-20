@@ -175,13 +175,13 @@ void BaseCase::automatic_grid(double MinX,double MinY,double MinZ) {
 
    // Generate 1D arrays
    if (type_x() == NO_SLIP) {
-      xx = MinX+length_x()*(0.5+0.5*cos(M_PI*ii/size_x()));
+      xx = MinX+length_x()*(0.5+0.5*cos(M_PI*ii/(size_x()-1)));
    } else {
       xx = MinX + length_x()*(ii+0.5)/size_x();
    }
    yy = MinY + length_y()*(ii+0.5)/size_y();
    if (type_z() == NO_SLIP) {
-      zz = MinZ+length_z()*(0.5+0.5*cos(M_PI*ii/size_z()));
+      zz = MinZ+length_z()*(0.5+0.5*cos(M_PI*ii/(size_z()-1)));
    } else {
       zz = MinZ + length_z()*(0.5+ii)/size_z();
    }
