@@ -1,4 +1,4 @@
-function [h xout yout] = my_nice_contour(x,y,z,n);
+function [h xout yout] = spins_contour(x,y,z,n);
 % my_nice_contour -- creates a contour plot using line objects
 %
 % syntax: [handle x_out y_out] = my_nice_contour(x,y,z,n)
@@ -19,6 +19,10 @@ function [h xout yout] = my_nice_contour(x,y,z,n);
 xx = x;
 yy = y;
 
+% The matlab function "contours" ends up doing the number-crunching
+% work for us to find the contours.  Its return value is a matrix
+% consisting of countour levels and the (x,y) points along those
+% levels, which we can then feed to "line" for plotting.
 cmat = contours(xx,yy,z,n);
 
 ind = 1;
@@ -26,11 +30,11 @@ h = [];
 xout = {};
 yout = {};
 while (ind < size(cmat,2))
-len = cmat(2,ind);
-xs = cmat(1,ind+(1:len));
-xout{ind} = xs;
-ys = cmat(2,ind+(1:len));
-yout{ind} = ys;
-h(end+1) = line(xs,ys);
-ind = ind + len+1;
+   len = cmat(2,ind);
+   xs = cmat(1,ind+(1:len));
+   xout{ind} = xs;
+   ys = cmat(2,ind+(1:len));
+   yout{ind} = ys;
+   h(end+1) = line(xs,ys);
+   ind = ind + len+1;
 end
