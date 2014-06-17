@@ -342,11 +342,22 @@ void compute_quadweights(int szx, int szy, int szz,
       _quadw_z = Lz/szz;
    }
 }
-const blitz::Array<double,1> * get_quad_x() { return &_quadw_x;}
-const blitz::Array<double,1> * get_quad_y() { return &_quadw_y;}
-const blitz::Array<double,1> * get_quad_z() { return &_quadw_z;}
-   
-
-   
- 
-   
+const blitz::Array<double,1> * get_quad_x() { 
+   // Check whether the quad weight has been initialized
+   if (_quadw_x.length(firstDim) <= 0) {
+      assert(0 && "Error: quadrature weights were not initalized before use");
+   }
+   return &_quadw_x;
+}
+const blitz::Array<double,1> * get_quad_y() {
+   if (_quadw_y.length(firstDim) <= 0) {
+      assert(0 && "Error: quadrature weights were not initalized before use");
+   }
+   return &_quadw_y;
+}
+const blitz::Array<double,1> * get_quad_z() {
+   if (_quadw_z.length(firstDim) <= 0) {
+      assert(0 && "Error: quadrature weights were not initalized before use");
+   }
+   return &_quadw_z;
+}
