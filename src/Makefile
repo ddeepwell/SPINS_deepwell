@@ -48,21 +48,20 @@ all: tests/test_deriv_x tests/test_write_x tests/test_esolve_x tests/test_heat_x
 
 .PHONY: clean
 clean:
-	rm -f *.o tests/*.o cases/*.o
+	rm -f *.o tests/*.o cases/*.o cases/*.src.? tests/*.src.?
 
 objfiles: $(shell ls *.cpp | sed -e 's/cpp/o/g')
 
 NSIntegrator.o: NSIntegrator.cpp NSIntegrator_impl.cc
 
-tests/test%.o: tests/tests%.cpp
+tests/test%.o: tests/test%.cpp
 	$(MPICXX) $(CFLAGS) -o $@ -c $<
 
-tests/test%_x: tests/test%.o TArray.o Parformer.o T_util.o  ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
+tests/test%_x: tests/test%.o tests/test%.src.o TArray.o Parformer.o T_util.o  ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) 
 
 cases/%.o: cases/%.cpp NSIntegrator_impl.cc NSIntegrator.hpp
 	$(MPICXX) $(CFLAGS) -o $@ -c  $<
-
 
 nonhydro_x: nonhydro_sw.o TArray.o T_util.o Parformer.o Splits.o Par_util.o Split_reader.o 
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
@@ -70,11 +69,21 @@ nonhydro_x: nonhydro_sw.o TArray.o T_util.o Parformer.o Splits.o Par_util.o Spli
 derek_x: derek.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o 
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-cases/%.x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
+cases/%.x: cases/%.o cases/%.src.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-cases/%_x: cases/%.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
+cases/%_x: cases/%.o cases/%.src.o TArray.o T_util.o Parformer.o ESolver.o Timestep.o NSIntegrator.o BaseCase.o Science.o Splits.o Par_util.o Split_reader.o gmres.o gmres_1d_solver.o gmres_2d_solver.o grad.o multigrid.o Options.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+tests/test%.src.c: tests/test%.cpp CaseFileSource.c
+	echo "const char casefilesource[] = {`xxd -i < $<`, 0x00};" > $@
+	echo "const char casefilename[] = \"$<\";" >> $@
+	cat CaseFileSource.c >> $@
+
+cases/%.src.c: cases/%.cpp CaseFileSource.c
+	echo "const char casefilesource[] = {`xxd -i < $<`, 0x00};" > $@
+	echo "const char casefilename[] = \"$<\";" >> $@
+	cat CaseFileSource.c >> $@
 
 %.o: %.cpp	*.hpp
 	$(MPICXX) $(CFLAGS) -o $@ -c $< 

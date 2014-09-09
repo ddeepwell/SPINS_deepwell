@@ -8,8 +8,16 @@ using namespace NSIntegrator;
 using blitz::Array;
 using std::vector;
 
-/* Implementation of non-abstract methods in BaseCase */
+/* Call the source code writing function in the constructor */
+extern "C" {
+   void WriteCaseFileSource(void);
+}
+BaseCase::BaseCase(void)
+{
+   if (master()) WriteCaseFileSource();
+}
 
+/* Implementation of non-abstract methods in BaseCase */
 int BaseCase::numActive() const { return 0; }
 int BaseCase::numPassive() const { return 0; }
 int BaseCase::numtracers() const { /* total number of tracers */

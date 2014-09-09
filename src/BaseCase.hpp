@@ -19,6 +19,9 @@ class BaseCase {
       only passive tracers */
 
    public:
+      /* Constructor */
+      BaseCase();
+
       /* Tracers */
       virtual int numActive() const; // Number of active tracers
       virtual int numPassive() const; // Number of passive tracers
