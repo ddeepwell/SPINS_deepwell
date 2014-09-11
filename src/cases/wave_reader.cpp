@@ -397,9 +397,9 @@ class userControl : public BaseCase {
                   read_array(rho,tracer_filename.c_str(),Nx,Ny,Nz);
                   break;
             }
+            write_array(rho,"tracer",plotnum);
+            write_reader(rho,"tracer",true);
          }
-         write_array(rho,"tracer",plotnum);
-         write_reader(rho,"tracer",true);
       }
 
       void forcing(double t, DTArray & u, DTArray & u_f,
