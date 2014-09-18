@@ -813,12 +813,12 @@ void write_reader(Array<double, 3> const & ar, const string basename, bool seq, 
 
    // Write out argument-sanitizers
    file << "% Sanitize the ranges:\n";
-   file << "if (~exist('xrange') || isempty(xrange) || isequal(xrange,':')) xrange = [1:" << sizes[0] << "]; end;\n";
+   file << "if (~exist('xrange') || isempty(xrange) || strcmp(xrange,':')) xrange = [1:" << sizes[0] << "]; end;\n";
    if (sizes[1] > 1) 
-      file << "if (~exist('yrange') || isempty(yrange) || isequal(yrange,':')) yrange = [1:" << sizes[1] << "]; end;\n";
+      file << "if (~exist('yrange') || isempty(yrange) || strcmp(yrange,':')) yrange = [1:" << sizes[1] << "]; end;\n";
    else
       file << "yrange = [1];\n";
-   file << "if (~exist('zrange') || isempty(zrange) || isequal(zrange,':')) zrange = [1:" << sizes[2] << "]; end;\n";
+   file << "if (~exist('zrange') || isempty(zrange) || strcmp(zrange,':')) zrange = [1:" << sizes[2] << "]; end;\n";
 
    file << "xrange(xrange < 1) = []; xrange(xrange > " << sizes[0] << ") = [];\n";
    file << "yrange(yrange < 1) = []; yrange(yrange > " << sizes[1] << ") = [];\n";
