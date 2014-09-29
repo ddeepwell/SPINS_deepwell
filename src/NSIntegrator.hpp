@@ -48,6 +48,7 @@ namespace NSIntegrator {
    using std::set;
    using namespace Transformer;
    // List supported physical dimension types (Fourier, free slip, no slip, mapped)  
+   static const char* DIMTYPE_NAME[] = { "PERIODIC", "FREE_SLIP", "NO_SLIP" };
    enum DIMTYPE { 
       PERIODIC, 
       FREE_SLIP, // Cosine expansion
@@ -228,9 +229,9 @@ namespace NSIntegrator {
                }
                if (master()) {
                   fprintf(stderr,"Beginning Navier-Stokes timestepping, on a %d x %d x %d grid\n",szx,szy,szz);
-                  fprintf(stderr, "X-dimension: type %d, expansion %d\n",tx,Sx);
-                  fprintf(stderr, "Y-dimension: type %d, expansion %d\n",ty,Sy);
-                  fprintf(stderr, "Z-dimension: type %d, expansion %d\n",tz,Sz);
+                  fprintf(stderr, "X-dimension: type %s, expansion %s\n",DIMTYPE_NAME[tx],S_EXP_NAME[Sx]);
+                  fprintf(stderr, "Y-dimension: type %s, expansion %s\n",DIMTYPE_NAME[ty],S_EXP_NAME[Sy]);
+                  fprintf(stderr, "Z-dimension: type %s, expansion %s\n",DIMTYPE_NAME[tz],S_EXP_NAME[Sz]);
                   fprintf(stderr, "%d tracers\n",(int) tracers.size());
                   for (unsigned int k = 0; k < tracers.size(); k++) {
                      if (t_diffusivity[k] == 0) {

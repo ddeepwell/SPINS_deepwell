@@ -17,6 +17,7 @@ namespace Transformer {
    using blitz::TinyVector;
    using blitz::GeneralArrayStorage;
 
+   static const char *S_EXP_NAME[] = { "COSINE", "SINE", "FOURIER", "CHEBY", "REAL", "COMPLEX", "NONE" };
    enum S_EXP { /* Spectral expansions */
       COSINE = 0, // DCT, for no-normal boundaries
       SINE = 1, // DST, for derivatives of no-normal boundaries
