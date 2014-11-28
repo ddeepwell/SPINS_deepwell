@@ -297,7 +297,7 @@ namespace Transformer {
          if (use_complex()) {
             lb = get_complex_temp()->lbound(dim);
             ub = get_complex_temp()->ubound(dim);
-         } else if (Tx != NONE || Ty != NONE || Tz != NONE) {
+         } else { // if (Tx != NONE || Ty != NONE || Tz != NONE) {
             lb = get_real_temp()->lbound(dim);
             ub = get_real_temp()->ubound(dim);
          } 
@@ -317,7 +317,7 @@ namespace Transformer {
 
       switch(type) {
          case NONE:
-            out(lb) = 0;
+            out = 0;
             break;
          case SINE:
             for (int i = lb; i <= ub; i++) {
