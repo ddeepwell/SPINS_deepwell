@@ -4,7 +4,7 @@
 
 CC=gcc
 CXX=g++
-LD=mpicc
+LD=mpic++
 
 # System-specific compiler flags
 SYSTEM_CFLAGS=
