@@ -11,7 +11,7 @@ using namespace blitz;
 using namespace std;
 
 //#define COARSE_GRID_SIZE 512
-#define COARSE_GRID_SIZE 64
+#define COARSE_GRID_SIZE 8
 #define SYNC(__x__) { for (int _i = 0; _i < nproc; _i++) { \
                      if (myrank == _i) { \
                         __x__; \
