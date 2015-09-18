@@ -178,8 +178,9 @@ void BaseCase::analysis(double t, DTArray & u, DTArray & v, DTArray & w,
     } 
 }
 
-void BaseCase::automatic_grid(double MinX, double MinY, double MinZ){
-    Array<double,1> xx(split_range(size_x())), yy(size_y()), zz(size_z());
+void BaseCase::automatic_grid(double MinX, double MinY, double MinZ,
+        Array<double,1> * xx=0, Array<double,1> * yy=0, Array<double,1> * zz = 0){
+    //Array<double,1> xx(split_range(size_x())), yy(size_y()), zz(size_z());
     Array<double,3> grid(alloc_lbound(size_x(),size_y(),size_z()),
             alloc_extent(size_x(),size_y(),size_z()),
             alloc_storage(size_x(),size_y(),size_z()));
@@ -189,29 +190,29 @@ void BaseCase::automatic_grid(double MinX, double MinY, double MinZ){
 
     // Generate 1D arrays
     if (type_x() == NO_SLIP) {
-        xx = MinX+length_x()*(0.5+0.5*cos(M_PI*ii/(size_x()-1)));
+        *xx = MinX+length_x()*(0.5+0.5*cos(M_PI*ii/(size_x()-1)));
     } else {
-        xx = MinX + length_x()*(ii+0.5)/size_x();
+        *xx = MinX + length_x()*(ii+0.5)/size_x();
     }
-    yy = MinY + length_y()*(ii+0.5)/size_y();
+    *yy = MinY + length_y()*(ii+0.5)/size_y();
     if (type_z() == NO_SLIP) {
-        zz = MinZ+length_z()*(0.5+0.5*cos(M_PI*ii/(size_z()-1)));
+        *zz = MinZ+length_z()*(0.5+0.5*cos(M_PI*ii/(size_z()-1)));
     } else {
-        zz = MinZ + length_z()*(0.5+ii)/size_z();
+        *zz = MinZ + length_z()*(0.5+ii)/size_z();
     }
 
     // Write grid/reader
-    grid = xx(ii) + 0*jj + 0*kk;
+    grid = (*xx)(ii) + 0*jj + 0*kk;
     write_array(grid,"xgrid");
     write_reader(grid,"xgrid",false);
 
     if (size_y() > 1) {
-        grid = 0*ii + yy(jj) + 0*kk;
+        grid = 0*ii + (*yy)(jj) + 0*kk;
         write_array(grid,"ygrid");
         write_reader(grid,"ygrid",false);
     }
 
-    grid = 0*ii + 0*jj + zz(kk);
+    grid = 0*ii + 0*jj + (*zz)(kk);
     write_array(grid,"zgrid");
     write_reader(grid,"zgrid",false);
 }
@@ -284,6 +285,20 @@ void BaseCase::init_tracer_dump(const std::string & field, DTArray & the_tracer)
     read_array(the_tracer,filename,size_x(),size_y(),size_z());
     return;
 }
+
+/* write out vertical chain of data */
+void BaseCase::write_chain(const char *filename, DTArray & val, int Iout, int Jout, double time) {
+    FILE *fid=fopen(filename,"a");
+    if (fid == NULL) {
+        fprintf(stderr,"Unable to open %s for writing\n",filename);
+        MPI_Finalize(); exit(1);
+    }
+    fprintf(fid,"%g",time);
+    for (int ki=0; ki<size_z(); ki++) fprintf(fid," %g",val(Iout,Jout,ki));
+    fprintf(fid,"\n");
+    fclose(fid);
+}
+
 
 /* Check and dump */
 void BaseCase::check_and_dump(double clock_time, double real_start_time,

@@ -28,13 +28,13 @@ blitz::thirdIndex kk;
 /* ------------------ Parameters --------------------- */
 // Grid scales
 double Lx, Ly, Lz;              // (m)
-int Nx, Ny, Nz;                 // Points in x, y (span), z directions
+int    Nx, Ny, Nz;              // Points in x, y (span), z directions
 double MinX, MinY, MinZ;        // Minimum x/y/z points
 // Grid types
 DIMTYPE intype_x, intype_y, intype_z;
 
 // Physical constants
-double g, ROT_F;                // gravity accel (m/s^2), Coriolis frequency (s^-1)
+double g, rot_f;                // gravity accel (m/s^2), Coriolis frequency (s^-1)
 
 // Stratification parameters
 double rho_0;                   // reference density (kg/L)
@@ -65,23 +65,23 @@ double chain_plot_interval;                     // time between chain writes (s)
 int chain1_xindex, chain1_yindex;
 
 // Initial velocity perturbation
-double u0_pert;
-
-// iteration coutner
-int itercount = 0;
+double perturb;
 
 // Dump parameters
+bool restart_from_dump;
 double real_start_time;
 double compute_time;
-bool restart_from_dump = false;
 double total_run_time;
 double avg_write_time;
 
-// Restarting options (these are defaults)
+// Restarting options
 bool restarting = false;
-double restart_time = 0;
+double restart_time;
 double initial_time = 0;
-int restart_sequence = -1;
+int restart_sequence;
+
+// Iteration counter
+int itercount = 0;
 
 /* ------------------ Derived parameters --------------------- */
 
@@ -185,17 +185,18 @@ class dambreak : public BaseCase {
                 v = 0; // of an entire (2D or 3D) array with a single line
                 w = 0; // of code.
                 /* Add random initial perturbation */
-                int myrank;
-                MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
-                /* Add random noise about 3 orders of magnitude below dipole */
-                Normal<double> rnd(0,1);
-                rnd.seed(myrank);
-                for (int i = u.lbound(firstDim); i<= u.ubound(firstDim); i++) {
-                    for (int j = u.lbound(secondDim); j<= u.ubound(secondDim); j++) {
-                        for (int k = u.lbound(thirdDim); k<= u.ubound(thirdDim); k++) {
-                            u(i,j,k) += u0_pert*rnd.random();
-                            v(i,j,k) += u0_pert*rnd.random();
-                            w(i,j,k) += u0_pert*rnd.random();
+                if (perturb > 0) {
+                    int myrank;
+                    MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+                    Normal<double> rnd(0,1);
+                    for (int i = u.lbound(firstDim); i<= u.ubound(firstDim); i++) {
+                        rnd.seed(i);
+                        for (int j = u.lbound(secondDim); j<= u.ubound(secondDim); j++) {
+                            for (int k = u.lbound(thirdDim); k<= u.ubound(thirdDim); k++) {
+                                u(i,j,k) += perturb*rnd.random();
+                                v(i,j,k) += perturb*rnd.random();
+                                w(i,j,k) += perturb*rnd.random();
+                            }
                         }
                     }
                 }
@@ -205,7 +206,7 @@ class dambreak : public BaseCase {
                 write_reader(w,"w",true);
                 write_array(u,"u",plot_number);
                 write_array(w,"w",plot_number);
-                if (Ny > 1 || ROT_F != 0) {
+                if (Ny > 1 || rot_f != 0) {
                     write_reader(v,"v",true);
                     write_array(v,"v",plot_number);
                 }
@@ -261,23 +262,23 @@ class dambreak : public BaseCase {
                 const DTArray & v, DTArray & v_f, const DTArray & w,
                 DTArray & w_f, vector<DTArray *> & tracers,
                 vector<DTArray *> & tracers_f) {
-            u_f = -ROT_F*v;
-            v_f = +ROT_F*u;
+            u_f = -rot_f*v;
+            v_f = +rot_f*u;
             w_f = -g*((*tracers[0]))/rho_0;
             *tracers_f[0] = 0;
             *tracers_f[1] = 0; // The passive tracer also has no forcing
         }
 
         /* Basic analysis, to write out the field periodically */
-        void analysis(double sim_time, DTArray & u, DTArray & v, DTArray & w,
+        void analysis(double time, DTArray & u, DTArray & v, DTArray & w,
                 vector<DTArray *> & tracer, DTArray & pressure) {
             /* If it is very close to the plot time, write data fields to disk */
-            if ((sim_time - last_plot - plot_interval) > -1e-6) {
+            if ((time - last_plot - plot_interval) > -1e-6) {
                 plot_number++;
                 t_step = MPI_Wtime(); // time just before write (for dump)
                 write_array(u,"u",plot_number);
                 write_array(w,"w",plot_number);
-                if (Ny > 1 || ROT_F != 0) {
+                if (Ny > 1 || rot_f != 0) {
                     write_array(v,"v",plot_number);
                 }
                 write_array(*tracer[0],"rho",plot_number);
@@ -318,24 +319,24 @@ class dambreak : public BaseCase {
             }
             if (master() && itercount == 1) fprintf(stdout,"[Iter], (Clock time), Sim time:, Max U, Max V, Max W, Max KE, Total KE, Max Density, Max Dye 1\n");
             if (master()) fprintf(stdout,"[%d] (%.6g) %.6f: %.6g %.6g %.6g %.6g %.6g %.6g %.6g\n",
-                    itercount,t_step,sim_time,max_u,max_v,max_w,max_ke,ke_tot,max_rho,max_dye1);
+                    itercount,t_step,time,max_u,max_v,max_w,max_ke,ke_tot,max_rho,max_dye1);
 
             if (savechain){
                 // Also, write out vertical chains of data
                 int Iout,Jout,myrank,pointflag;
                 MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
                 // All other fields
-                if ((sim_time >= chain1_start_time)
-                        && ((sim_time - chain_last_plot - chain_plot_interval) > -1e-6)
-                        && (sim_time < chain1_end_time)) {
+                if ((time >= chain1_start_time)
+                        && ((time - chain_last_plot - chain_plot_interval) > -1e-6)
+                        && (time < chain1_end_time)) {
                     Iout = chain1_xindex; Jout = chain1_yindex; pointflag = 0;
                     if ( Iout >= u.lbound(firstDim) && Iout <= u.ubound(firstDim) ) pointflag=1;
                     if (pointflag==1) {
-                        writechain("u_chain.txt",u, Iout, Jout, sim_time);
-                        writechain("v_chain.txt",v, Iout, Jout, sim_time);
-                        writechain("w_chain.txt",w, Iout, Jout, sim_time);
-                        writechain("rho_chain.txt",*tracer[0], Iout, Jout, sim_time);
-                        writechain("dye1_chain.txt",*tracer[1], Iout, Jout, sim_time);
+                        write_chain("u_chain.txt",u, Iout, Jout, time);
+                        write_chain("v_chain.txt",v, Iout, Jout, time);
+                        write_chain("w_chain.txt",w, Iout, Jout, time);
+                        write_chain("rho_chain.txt",*tracer[0], Iout, Jout, time);
+                        write_chain("dye1_chain.txt",*tracer[1], Iout, Jout, time);
                     }
                     chain_last_plot = chain_last_plot + chain_plot_interval;
                 }
@@ -346,23 +347,11 @@ class dambreak : public BaseCase {
                 last_plot = restart_sequence*plot_interval;    
             }
             // see if close to end of compute time and dump
-            check_and_dump(clock_time, real_start_time, compute_time, sim_time, avg_write_time,
+            check_and_dump(clock_time, real_start_time, compute_time, time, avg_write_time,
                     plot_number, u, v, w, tracer);
             // Change dump log file if successfully reached final time
             // the dump time will be twice final time so that a restart won't actually start
             successful_dump(plot_number, final_time, plot_interval);
-        }
-
-        void writechain(const char *filename, DTArray & val, int Iout, int Jout, double sim_time) {
-            FILE *fid=fopen(filename,"a");
-            if (fid==NULL) {
-                fprintf(stderr,"Unable to open %s for writing\n",filename);
-                exit(1);
-            }
-            fprintf(fid,"%g",sim_time);
-            for (int ki=0; ki<Nz; ki++) fprintf(fid," %g",val(Iout,Jout,ki));
-            fprintf(fid,"\n");
-            fclose(fid);
         }
 
         // User specified variables to dump
@@ -383,18 +372,7 @@ class dambreak : public BaseCase {
         last_plot = restart_time;
         chain_last_plot = chain1_start_time - chain_plot_interval;
         // Create one-dimensional arrays for the coordinates
-        if (type_x() == NO_SLIP) {
-            xx = MinX + Lx*(0.5+0.5*cos(M_PI*ii/(Nx-1)));
-        } else {
-            xx = MinX + Lx*(ii+0.5)/Nx;
-        }
-        yy = MinY + Ly*(ii+0.5)/Ny;
-        if (type_z() == NO_SLIP) {
-            zz = MinZ + Lz*(0.5+0.5*cos(M_PI*ii/(Nz-1)));
-        } else {
-            zz = MinZ + Lz*(0.5+ii)/Nz;
-        }
-        automatic_grid(MinX,MinY,MinZ);
+        automatic_grid(MinX, MinY, MinZ, &xx, &yy, &zz);
     }
 };
 
@@ -413,7 +391,7 @@ int main(int argc, char ** argv) {
     option_category("Restart options");
     add_switch("restart",&restarting,"Restart from prior output time.  OVERRIDES many other values.");
     add_option("restart_time",&restart_time,0.0,"Time to restart from");
-    add_option("restart_sequence",&restart_sequence,"Sequence number to restart from");
+    add_option("restart_sequence",&restart_sequence,-1,"Sequence number to restart from");
 
     option_category("Grid Options");
     add_option("Lx",&Lx,"Length of tank");
@@ -436,7 +414,7 @@ int main(int argc, char ** argv) {
     add_option("type_z",&zgrid_type,"Grid type in Z");
 
     add_option("g",&g,9.81,"Gravitational acceleration");
-    add_option("ROT_F",&ROT_F,0.0,"Coriolis frequency");
+    add_option("rot_f",&rot_f,0.0,"Coriolis frequency");
     add_option("rho_0",&rho_0,"Reference density");
     add_option("delta_rho",&delta_rho,"Density difference b/w top and bottom layers");
     add_option("h_perc",&h_perc,"Pycnocline half-width as perc. of depth");
@@ -457,7 +435,7 @@ int main(int argc, char ** argv) {
     add_option("chain1_end_time",&chain1_end_time,"Time to stop writing chain");
     add_option("chain_plot_interval",&chain_plot_interval,"Time between writes in chain");
 
-    add_option("u0_pert",&u0_pert,"Initial perturbation in velocity");
+    add_option("perturb",&perturb,"Initial perturbation in velocity");
 
     option_category("Dumping options");
     add_option("compute_time",&compute_time,-1.0,"Time permitted for computation");
@@ -583,7 +561,7 @@ int main(int argc, char ** argv) {
     if (master()) {
         fprintf(stdout,"Dam break problem\n");
         fprintf(stdout,"Using a %f x %f x %f grid of %d x %d x %d points\n",Lx,Ly,Lz,Nx,Ny,Nz);
-        fprintf(stdout,"g = %f, ROT_F = %f, rho_0 = %f, delta_rho %f\n",g,ROT_F,rho_0,delta_rho);
+        fprintf(stdout,"g = %f, rot_f = %f, rho_0 = %f, delta_rho %f\n",g,rot_f,rho_0,delta_rho);
         fprintf(stdout,"Pycnocline half-width as %% of depth: h_perc = %g\n",h_perc);
         fprintf(stdout,"Pycnocline half-width: h = %g\n",h_halfwidth);
         fprintf(stdout,"Pycnocline vertical shift %%: zeta = %g\n",pyc_asym);
@@ -591,7 +569,7 @@ int main(int argc, char ** argv) {
         fprintf(stdout,"Height of mixed region as %% of depth: H_mix = %g\n",Hmix);
         fprintf(stdout,"Time between plots: %g s\n",plot_interval);
         fprintf(stdout,"Chain 1 indices: x_i = %d, y_i = %d\n",chain1_xindex,chain1_yindex);
-        fprintf(stdout,"Initial velocity perturbation: %g\n",u0_pert);
+        fprintf(stdout,"Initial velocity perturbation: %g\n",perturb);
 
         fprintf(stdout,"Stably-stratified phase speed %g\n",c0);
         fprintf(stdout,"Buoyancy frequency squared %g\n",N2_max);

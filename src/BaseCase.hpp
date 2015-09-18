@@ -88,21 +88,23 @@ class BaseCase {
       virtual void init_vels(DTArray & u, DTArray & v, DTArray & w) { 
          assert(0 && "init_vels not implemented");
          abort();};
-      // Initialize velocities if restarting from regular output
+      // Initialize velocities and tracer
       virtual void init_vels_restart(DTArray & u, DTArray & v, DTArray & w); 
       virtual void init_vels_dump(DTArray & u, DTArray & v, DTArray & w); 
       virtual void init_tracer_restart(const std::string & field, DTArray & the_tracer); 
       virtual void init_tracer_dump(const std::string & field,  DTArray & the_tracer); 
 
-      virtual void check_and_dump(double clock_time, double real_start_time,
-                double compute_time, double sim_time, double avg_write_time, int plot_number,
-                DTArray & u, DTArray & v, DTArray & w, vector<DTArray *> & tracer);
-
-      virtual void successful_dump(int plot_number, double final_time, double plot_interval);
-
       virtual void init_tracer(int t_num, DTArray & tracer) { 
          assert(0 && "init_tracer not implemented");
          abort();}; // single-tracer
+
+      /* Write vertical chain */
+      virtual void write_chain(const char *filename, DTArray & val, int Iout, int Jout, double time);
+      /* dumping functions */
+      virtual void check_and_dump(double clock_time, double real_start_time,
+                double compute_time, double sim_time, double avg_write_time, int plot_number,
+                DTArray & u, DTArray & v, DTArray & w, vector<DTArray *> & tracer);
+      virtual void successful_dump(int plot_number, double final_time, double plot_interval);
 
       virtual void write_variables(DTArray & u, DTArray & v, DTArray & w, vector<DTArray *> & tracer) { 
          assert(0 && "write_variables not defined");
@@ -157,7 +159,8 @@ class BaseCase {
          abort();}; // Single-tracer analysis
 
       // Generate an automatic grid for unmapped cases
-      virtual void automatic_grid(double MinX, double MinY, double MinZ);
+      virtual void automatic_grid(double MinX, double MinY, double MinZ, 
+              Array<double,1> *xx, Array<double,1> *yy, Array<double,1> *zz);
 };
 
 extern template class FluidEvolve<BaseCase>;
