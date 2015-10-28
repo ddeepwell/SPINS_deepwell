@@ -179,8 +179,21 @@ void BaseCase::analysis(double t, DTArray & u, DTArray & v, DTArray & w,
 }
 
 void BaseCase::automatic_grid(double MinX, double MinY, double MinZ,
-        Array<double,1> * xx=0, Array<double,1> * yy=0, Array<double,1> * zz = 0){
+        Array<double,1> * xx, Array<double,1> * yy, Array<double,1> * zz){
     //Array<double,1> xx(split_range(size_x())), yy(size_y()), zz(size_z());
+    bool xxa = false, yya = false, zza = false;
+    if (!xx) {
+        xxa = true; // Delete xx when returning
+        xx = new Array<double,1>(split_range(size_x()));
+    }
+    if (!yy) {
+        yya = true;
+        yy = new Array<double,1>(size_y());
+    }
+    if (!zz) {
+        zza = true;
+        zz = new Array<double,1>(size_z());
+    }
     Array<double,3> grid(alloc_lbound(size_x(),size_y(),size_z()),
             alloc_extent(size_x(),size_y(),size_z()),
             alloc_storage(size_x(),size_y(),size_z()));
@@ -215,6 +228,11 @@ void BaseCase::automatic_grid(double MinX, double MinY, double MinZ,
     grid = 0*ii + 0*jj + (*zz)(kk);
     write_array(grid,"zgrid");
     write_reader(grid,"zgrid",false);
+
+    // Clean up
+    if (xxa) delete xx;
+    if (yya) delete yy;
+    if (zza) delete zz;
 }
 
 /* Read velocities from regular output */

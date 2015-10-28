@@ -160,7 +160,7 @@ class BaseCase {
 
       // Generate an automatic grid for unmapped cases
       virtual void automatic_grid(double MinX, double MinY, double MinZ, 
-              Array<double,1> *xx, Array<double,1> *yy, Array<double,1> *zz);
+              Array<double,1> *xx=0, Array<double,1> *yy=0, Array<double,1> *zz=0);
 };
 
 extern template class FluidEvolve<BaseCase>;
