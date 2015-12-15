@@ -9,6 +9,7 @@
 #include "Split_reader.hpp"
 #include "T_util.hpp"
 #include "Parformer.hpp"
+#include <stdlib.h>
 
 // Marek's Overturning Diagnostic
 
@@ -273,29 +274,285 @@ void vorticity(TArrayn::DTArray & u, TArrayn::DTArray & v,
    return;
 }
 
+void dudx(TArrayn::DTArray & u, TArrayn::DTArray * & out,
+          double Lx, double Ly, double Lz,
+          int szx, int szy, int szz,
+          NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
+          NSIntegrator::DIMTYPE DIM_Z) {
+   static Transformer::Trans1D trans_x(szx,szy,szz,firstDim,
+                     (DIM_X == PERIODIC ? FOURIER : REAL)),
+                  trans_y(szx,szy,szz,secondDim,
+                     (DIM_Y == PERIODIC ? FOURIER : REAL)),
+                  trans_z (szx,szy,szz,thirdDim,
+                     (DIM_Z == PERIODIC ? FOURIER : REAL));
+   static blitz::TinyVector<int,3> 
+      local_lbounds(alloc_lbound(szx,szy,szz)),
+      local_extent(alloc_extent(szx,szy,szz));
+   static blitz::GeneralArrayStorage<3> 
+      local_storage(alloc_storage(szx,szy,szz));
+   static DTArray temp(local_lbounds,local_extent,local_storage);
+  if (DIM_X == PERIODIC) {
+     deriv_fft(u,trans_x,temp);
+     temp *= 2*M_PI/Lx;
+  } else if (DIM_X == FREE_SLIP) {
+     deriv_dst(u,trans_x,temp);
+     temp *= M_PI/Lx;
+  } else {
+     assert(DIM_X == NO_SLIP);
+     deriv_cheb(u,trans_x,temp);
+     temp *= -2/Lx;
+  }
+  out = &temp;
+  return;
+}
+
+void dudy(TArrayn::DTArray & u, TArrayn::DTArray * & out,
+          double Lx, double Ly, double Lz,
+          int szx, int szy, int szz,
+          NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
+          NSIntegrator::DIMTYPE DIM_Z) {
+   static Transformer::Trans1D trans_x(szx,szy,szz,firstDim,
+                     (DIM_X == PERIODIC ? FOURIER : REAL)),
+                  trans_y(szx,szy,szz,secondDim,
+                     (DIM_Y == PERIODIC ? FOURIER : REAL)),
+                  trans_z (szx,szy,szz,thirdDim,
+                     (DIM_Z == PERIODIC ? FOURIER : REAL));
+   static blitz::TinyVector<int,3> 
+      local_lbounds(alloc_lbound(szx,szy,szz)),
+      local_extent(alloc_extent(szx,szy,szz));
+   static blitz::GeneralArrayStorage<3> 
+      local_storage(alloc_storage(szx,szy,szz));
+   static DTArray temp(local_lbounds,local_extent,local_storage);
+  if (DIM_Y == PERIODIC) {
+     deriv_fft(u,trans_y,temp);
+     temp *= 2*M_PI/Ly;
+  } else if (DIM_Y == FREE_SLIP) {
+     deriv_dct(u,trans_y,temp);
+     temp *= M_PI/Ly;
+  } else {
+     assert(DIM_Y == NO_SLIP);
+     deriv_cheb(u,trans_y,temp);
+     temp *= -2/Ly;
+  }
+  out = &temp;
+  return;
+}
+
+void dudz(TArrayn::DTArray & u, TArrayn::DTArray * & out,
+          double Lx, double Ly, double Lz,
+          int szx, int szy, int szz,
+          NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
+          NSIntegrator::DIMTYPE DIM_Z) {
+   static Transformer::Trans1D trans_x(szx,szy,szz,firstDim,
+                     (DIM_X == PERIODIC ? FOURIER : REAL)),
+                  trans_y(szx,szy,szz,secondDim,
+                     (DIM_Y == PERIODIC ? FOURIER : REAL)),
+                  trans_z (szx,szy,szz,thirdDim,
+                     (DIM_Z == PERIODIC ? FOURIER : REAL));
+   static blitz::TinyVector<int,3> 
+      local_lbounds(alloc_lbound(szx,szy,szz)),
+      local_extent(alloc_extent(szx,szy,szz));
+   static blitz::GeneralArrayStorage<3> 
+      local_storage(alloc_storage(szx,szy,szz));
+   static DTArray temp(local_lbounds,local_extent,local_storage);
+  if (DIM_Z == PERIODIC) {
+     deriv_fft(u,trans_z,temp);
+     temp *= 2*M_PI/Lz;
+  } else if (DIM_Z == FREE_SLIP) {
+     deriv_dct(u,trans_z,temp);
+     temp *= M_PI/Lz;
+  } else {
+     assert(DIM_Z == NO_SLIP);
+     deriv_cheb(u,trans_z,temp);
+     temp *= -2/Lz;
+  }
+  out = &temp;
+  return;
+}
+
+void ertel_pv(TArrayn::DTArray & u, TArrayn::DTArray & v, 
+      TArrayn::DTArray & w, TArrayn::DTArray & rho,
+      TArrayn::DTArray * & e_pv, double f0, double N0,
+      double Lx, double Ly, double Lz,
+      int szx, int szy, int szz,
+      NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
+      NSIntegrator::DIMTYPE DIM_Z) {
+
+   static int Nx = 0, Ny = 0, Nz = 0;
+   static Transformer::Trans1D trans_x(szx,szy,szz,firstDim,
+                     (DIM_X == PERIODIC ? FOURIER : REAL)),
+                  trans_y(szx,szy,szz,secondDim,
+                     (DIM_Y == PERIODIC ? FOURIER : REAL)),
+                  trans_z (szx,szy,szz,thirdDim,
+                     (DIM_Z == PERIODIC ? FOURIER : REAL));
+   static blitz::TinyVector<int,3> 
+      local_lbounds(alloc_lbound(szx,szy,szz)),
+      local_extent(alloc_extent(szx,szy,szz));
+   static blitz::GeneralArrayStorage<3> 
+      local_storage(alloc_storage(szx,szy,szz));
+   static DTArray temp_pv(local_lbounds,local_extent,local_storage),
+                  temp_a(local_lbounds,local_extent,local_storage),
+                  temp_b(local_lbounds,local_extent,local_storage);
+   /* Initialization */
+   if (Nx == 0 || Ny == 0 || Nz == 0) {
+      Nx = szx; Ny = szy; Nz = szz;
+   }
+   assert (Nx == szx && Ny == szy && Nz == szz);
+   /* x-vorticity is w_y - v_z */
+   /* b_x*(w_y - v_z) */
+   temp_pv = 0;
+   if (szx > 1) { // b_x
+      if (DIM_X == PERIODIC) {
+         deriv_fft(rho,trans_x,temp_b);
+         temp_b *= 2*M_PI/Lx;
+      } else if (DIM_X == FREE_SLIP) {
+         deriv_dct(rho,trans_x,temp_b);
+         temp_b *= M_PI/Lx;
+      } else {
+         assert(DIM_X == NO_SLIP);
+         deriv_cheb(rho,trans_x,temp_b);
+         temp_b *= -2/Lx;
+      }
+   }
+   if (szy > 1) { // w_y
+      if (DIM_X == PERIODIC) {
+         deriv_fft(w,trans_y,temp_a);
+         temp_pv += temp_a*temp_b*(2*M_PI/Ly);
+      } else if (DIM_X == FREE_SLIP) {
+         deriv_dct(w,trans_y,temp_a);
+         temp_pv += temp_a*temp_b*(M_PI/Ly);
+      } else {
+         assert(DIM_X == NO_SLIP);
+         deriv_cheb(w,trans_y,temp_a);
+         temp_pv += temp_a*temp_b*(-2/Ly);
+      }
+   }
+   if (szz > 1) { // v_z
+      if (DIM_Z == PERIODIC) {
+         deriv_fft(v,trans_z,temp_a);
+         temp_pv -= temp_a*temp_b*(2*M_PI/Lz);
+      } else if (DIM_Z == FREE_SLIP) {
+         deriv_dct(v,trans_z,temp_a);
+         temp_pv -= temp_a*temp_b*(M_PI/Lz);
+      } else {
+         assert(DIM_Z == NO_SLIP);
+         deriv_cheb(v,trans_z,temp_a);
+         temp_pv -= temp_a*temp_b*(-2/Lz);
+      }
+   }
+
+   // y-vorticity is u_z - w_x
+   /* b_y*(u_z - w_x) */
+   if (szy > 1) { // b_y
+      if (DIM_Y == PERIODIC) {
+         deriv_fft(rho,trans_y,temp_b);
+         temp_b *= 2*M_PI/Ly;
+      } else if (DIM_Y == FREE_SLIP) {
+         deriv_dct(rho,trans_y,temp_b);
+         temp_b *= M_PI/Ly;
+      } else {
+         assert(DIM_Y == NO_SLIP);
+         deriv_cheb(rho,trans_y,temp_b);
+         temp_b *= -2/Ly;
+      }
+   }
+   if (szz > 1) { // u_z
+      if (DIM_Z == PERIODIC) {
+         deriv_fft(u,trans_z,temp_a);
+         temp_pv += temp_a*temp_b*(2*M_PI/Lz);
+      } else if (DIM_Z == FREE_SLIP) {
+         deriv_dct(u,trans_z,temp_a);
+         temp_pv += temp_a*temp_b*(M_PI/Lz);
+      } else {
+         assert(DIM_Z == NO_SLIP);
+         deriv_cheb(u,trans_z,temp_a);
+         temp_pv += temp_a*temp_b*(-2/Lz);
+      }
+   }
+   if (szx > 1) { // w_x
+      if (DIM_X == PERIODIC) {
+         deriv_fft(w,trans_x,temp_a);
+         temp_pv -= temp_a*temp_b*(2*M_PI/Lx);
+      } else if (DIM_X == FREE_SLIP) {
+         deriv_dct(w,trans_x,temp_a);
+         temp_pv -= temp_a*temp_b*(M_PI/Lx);
+      } else {
+         assert(DIM_X == NO_SLIP);
+         deriv_cheb(w,trans_x,temp_a);
+         temp_pv -= temp_a*temp_b*(-2/Lx);
+      }
+   }
+
+   // And finally, vort_z is v_x - u_y
+   // b_z*(v_x - u_y)
+   if (szz > 1) { // b_z
+      if (DIM_Z == PERIODIC) {
+         deriv_fft(rho,trans_z,temp_b);
+         temp_b *= 2*M_PI/Lz;
+      } else if (DIM_Z == FREE_SLIP) {
+         deriv_dct(rho,trans_z,temp_b);
+         temp_b *= M_PI/Lz;
+      } else {
+         assert(DIM_Z == NO_SLIP);
+         deriv_cheb(rho,trans_z,temp_b);
+         temp_b *= -2/Lz;
+      }
+      temp_b += N0*N0;
+      temp_pv += f0*temp_b;
+   }
+   if (szx > 1) { // v_x
+      if (DIM_X == PERIODIC) {
+         deriv_fft(v,trans_x,temp_a);
+         temp_pv += temp_a*temp_b*(2*M_PI/Lx);
+      } else if (DIM_X == FREE_SLIP) {
+         deriv_dct(v,trans_x,temp_a);
+         temp_pv += temp_a*temp_b*(M_PI/Lx);
+      } else {
+         assert(DIM_X == NO_SLIP);
+         deriv_cheb(v,trans_x,temp_a);
+         temp_pv += temp_a*temp_b*(-2/Lx);
+      }
+   }
+   if (szy > 1) { // u_y
+      if (DIM_Y == PERIODIC) {
+         deriv_fft(u,trans_y,temp_a);
+         temp_pv -= temp_a*temp_b*(2*M_PI/Ly);
+      } else if (DIM_Y == FREE_SLIP) {
+         deriv_dct(u,trans_y,temp_a);
+         temp_pv -= temp_a*temp_b*(M_PI/Ly);
+      } else {
+         assert(DIM_Y == NO_SLIP);
+         deriv_cheb(u,trans_y,temp_a);
+         temp_pv -= temp_a*temp_b*(-2/Ly);
+      }
+   }
+   e_pv = &temp_pv;
+   return;
+}
+
 // Global arrays to store quadrature weights
 Array<double,1> _quadw_x, _quadw_y, _quadw_z;
 
 // Compute quadrature weights
 void compute_quadweights(int szx, int szy, int szz, 
-      double Lx, double Ly, double Lz,
-      NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y,
-      NSIntegrator::DIMTYPE DIM_Z) {
-   _quadw_x.resize(split_range(szx));
-   _quadw_y.resize(szy); _quadw_z.resize(szz);
-   if (DIM_X == NO_SLIP) {
-      blitz::firstIndex ii;
-      _quadw_x = 1;
-      for (int k = 1; k <= (szx-2)/2; k++) {
-         // From Trefethen, Spectral Methods in MATLAB
-         // clenshaw-curtis quadrature weights
-         _quadw_x -= 2*cos(2*k*M_PI*ii/(szx-1))/(4*k*k-1);
-      }
-      if ((szx%2))
-         _quadw_x -= cos(M_PI*ii)/((szx-1)*(szx-1)-1);
-      _quadw_x = 2*_quadw_x/(szx-1);
-      if (_quadw_x.lbound(firstDim) == 0) {
-         _quadw_x(0) = 1.0/(szx-1)/(szx-1);
+        double Lx, double Ly, double Lz,
+        NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y,
+        NSIntegrator::DIMTYPE DIM_Z) {
+    _quadw_x.resize(split_range(szx));
+    _quadw_y.resize(szy); _quadw_z.resize(szz);
+    if (DIM_X == NO_SLIP) {
+        blitz::firstIndex ii;
+        _quadw_x = 1;
+        for (int k = 1; k <= (szx-2)/2; k++) {
+            // From Trefethen, Spectral Methods in MATLAB
+            // clenshaw-curtis quadrature weights
+            _quadw_x -= 2*cos(2*k*M_PI*ii/(szx-1))/(4*k*k-1);
+        }
+        if ((szx%2))
+            _quadw_x -= cos(M_PI*ii)/((szx-1)*(szx-1)-1);
+        _quadw_x = 2*_quadw_x/(szx-1);
+        if (_quadw_x.lbound(firstDim) == 0) {
+            _quadw_x(0) = 1.0/(szx-1)/(szx-1);
       }
       if (_quadw_x.ubound(firstDim) == (szx-1)) {
          _quadw_x(szx-1) = 1.0/(szx-1)/(szx-1);
@@ -361,3 +618,4 @@ const blitz::Array<double,1> * get_quad_z() {
    }
    return &_quadw_z;
 }
+

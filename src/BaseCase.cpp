@@ -180,7 +180,7 @@ void BaseCase::analysis(double t, DTArray & u, DTArray & v, DTArray & w,
 
 void BaseCase::automatic_grid(double MinX, double MinY, double MinZ,
         Array<double,1> * xx, Array<double,1> * yy, Array<double,1> * zz){
-    //Array<double,1> xx(split_range(size_x())), yy(size_y()), zz(size_z());
+
     bool xxa = false, yya = false, zza = false;
     if (!xx) {
         xxa = true; // Delete xx when returning
@@ -216,17 +216,17 @@ void BaseCase::automatic_grid(double MinX, double MinY, double MinZ,
 
     // Write grid/reader
     grid = (*xx)(ii) + 0*jj + 0*kk;
-    write_array(grid,"xgrid");
+    write_array_old(grid,"xgrid");
     write_reader(grid,"xgrid",false);
 
     if (size_y() > 1) {
         grid = 0*ii + (*yy)(jj) + 0*kk;
-        write_array(grid,"ygrid");
+        write_array_old(grid,"ygrid");
         write_reader(grid,"ygrid",false);
     }
 
     grid = 0*ii + 0*jj + (*zz)(kk);
-    write_array(grid,"zgrid");
+    write_array_old(grid,"zgrid");
     write_reader(grid,"zgrid",false);
 
     // Clean up
@@ -303,20 +303,6 @@ void BaseCase::init_tracer_dump(const std::string & field, DTArray & the_tracer)
     read_array(the_tracer,filename,size_x(),size_y(),size_z());
     return;
 }
-
-/* write out vertical chain of data */
-void BaseCase::write_chain(const char *filename, DTArray & val, int Iout, int Jout, double time) {
-    FILE *fid=fopen(filename,"a");
-    if (fid == NULL) {
-        fprintf(stderr,"Unable to open %s for writing\n",filename);
-        MPI_Finalize(); exit(1);
-    }
-    fprintf(fid,"%g",time);
-    for (int ki=0; ki<size_z(); ki++) fprintf(fid," %g",val(Iout,Jout,ki));
-    fprintf(fid,"\n");
-    fclose(fid);
-}
-
 
 /* Check and dump */
 void BaseCase::check_and_dump(double clock_time, double real_start_time,

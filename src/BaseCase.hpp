@@ -98,8 +98,6 @@ class BaseCase {
          assert(0 && "init_tracer not implemented");
          abort();}; // single-tracer
 
-      /* Write vertical chain */
-      virtual void write_chain(const char *filename, DTArray & val, int Iout, int Jout, double time);
       /* dumping functions */
       virtual void check_and_dump(double clock_time, double real_start_time,
                 double compute_time, double sim_time, double avg_write_time, int plot_number,

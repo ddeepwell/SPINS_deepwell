@@ -32,6 +32,35 @@ void vorticity(TArrayn::DTArray & u, TArrayn::DTArray & v,
       NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
       NSIntegrator::DIMTYPE DIM_Z);
 
+/* Compute dudx */
+void dudx(TArrayn::DTArray & u, TArrayn::DTArray * & out, 
+      double Lx, double Ly, double Lz,
+      int szx, int szy, int szz,
+      NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
+      NSIntegrator::DIMTYPE DIM_Z);
+
+/* Compute dudy */
+void dudy(TArrayn::DTArray & u, TArrayn::DTArray * & out, 
+      double Lx, double Ly, double Lz,
+      int szx, int szy, int szz,
+      NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
+      NSIntegrator::DIMTYPE DIM_Z);
+
+/* Compute dudz */
+void dudz(TArrayn::DTArray & u, TArrayn::DTArray * & out, 
+      double Lx, double Ly, double Lz,
+      int szx, int szy, int szz,
+      NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
+      NSIntegrator::DIMTYPE DIM_Z);
+
+/* Compute ertel pv */
+void ertel_pv(TArrayn::DTArray & u, TArrayn::DTArray & v, 
+              TArrayn::DTArray & w, TArrayn::DTArray & rho,
+	      TArrayn::DTArray * & e_pv, double f0, double N0,
+      double Lx, double Ly, double Lz,
+      int szx, int szy, int szz,
+      NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
+      NSIntegrator::DIMTYPE DIM_Z);
 
 // Quadrature weights
 void compute_quadweights(int szx, int szy, int szz, 
