@@ -327,7 +327,7 @@ void BaseCase::check_and_dump(double clock_time, double real_start_time,
         double total_run_time = clock_time - real_start_time;
 
         // check if close to end of compute time
-        if ((compute_time > 0) && (compute_time - total_run_time < 3*avg_write_time)){
+        if ((compute_time > 0) && (compute_time - total_run_time < 10*avg_write_time)){
             do_dump = 1; // true
         }
     }
