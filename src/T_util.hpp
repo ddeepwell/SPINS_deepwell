@@ -41,5 +41,10 @@ void write_reader(blitz::Array<double, 3> const & ar, const std::string basename
 void read_array(blitz::Array<double,3> & ar, const char * filename,
       int size_x, int size_y, int size_z, MPI_Comm c = MPI_COMM_WORLD);
 
+void read_array_par(TArrayn::DTArray & ar, const char * filename,
+        int size_x, int size_y, int size_z, MPI_Comm c = MPI_COMM_WORLD);
+
+void convert_index_2(int n, int Nx, int Ny, int Nz, int * I, int * J, int * K);
+
 } // end namespace
 #endif

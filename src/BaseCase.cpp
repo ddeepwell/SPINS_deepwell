@@ -243,20 +243,20 @@ void BaseCase::init_vels_restart(DTArray & u, DTArray & v, DTArray & w){
     /* u */
     snprintf(filename,100,"u.%d",get_restart_sequence());
     if (master()) fprintf(stdout,"Reading u from %s\n",filename);
-    read_array(u,filename,size_x(),size_y(),size_z());
+    read_array_par(u,filename,size_x(),size_y(),size_z());
 
     /* v, only necessary if this is an actual 3D run or if
        rotation is noNzero */
     if (size_y() > 1 || get_rot_f() != 0) {
         snprintf(filename,100,"v.%d",get_restart_sequence());
         if (master()) fprintf(stdout,"Reading v from %s\n",filename);
-        read_array(v,filename,size_x(),size_y(),size_z());
+        read_array_par(v,filename,size_x(),size_y(),size_z());
     }
 
     /* w */
     snprintf(filename,100,"w.%d",get_restart_sequence());
     if (master()) fprintf(stdout,"Reading w from %s\n",filename);
-    read_array(w,filename,size_x(),size_y(),size_z());
+    read_array_par(w,filename,size_x(),size_y(),size_z());
     return;
 }
 
@@ -266,18 +266,18 @@ void BaseCase::init_vels_dump(DTArray & u, DTArray & v, DTArray & w){
 
     /* u */
     if (master()) fprintf(stdout,"Reading u from u.dump\n");
-    read_array(u,"u.dump",size_x(),size_y(),size_z());
+    read_array_par(u,"u.dump",size_x(),size_y(),size_z());
 
     /* v, only necessary if this is an actual 3D run or if
        rotation is noNzero */
     if (size_y() > 1 || get_rot_f() != 0) {
         if (master()) fprintf(stdout,"Reading v from v.dump\n");
-        read_array(v,"v.dump",size_x(),size_y(),size_z());
+        read_array_par(v,"v.dump",size_x(),size_y(),size_z());
     }
 
     /* w */
     if (master()) fprintf(stdout,"Reading w from w.dump\n");
-    read_array(w,"w.dump",size_x(),size_y(),size_z());
+    read_array_par(w,"w.dump",size_x(),size_y(),size_z());
     return;
 }
 
@@ -289,7 +289,7 @@ void BaseCase::init_tracer_restart(const std::string & field, DTArray & the_trac
 
     snprintf(filename,100,"%s.%d",field.c_str(),get_restart_sequence());
     if (master()) fprintf(stdout,"Reading %s from %s\n",field.c_str(),filename);
-    read_array(the_tracer,filename,size_x(),size_y(),size_z());
+    read_array_par(the_tracer,filename,size_x(),size_y(),size_z());
     return;
 }
 
@@ -300,7 +300,7 @@ void BaseCase::init_tracer_dump(const std::string & field, DTArray & the_tracer)
 
     snprintf(filename,100,"%s.dump",field.c_str());
     if (master()) fprintf(stdout,"Reading %s from %s\n",field.c_str(),filename);
-    read_array(the_tracer,filename,size_x(),size_y(),size_z());
+    read_array_par(the_tracer,filename,size_x(),size_y(),size_z());
     return;
 }
 

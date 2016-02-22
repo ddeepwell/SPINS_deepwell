@@ -956,5 +956,55 @@ void read_array(blitz::Array<double,3> & ar, const char * filename,
    }
 }
 
+void convert_index_2(int n, int Nx, int Ny, int Nz, int * I, int * J, int * K) {
+    *I = (n/Ny)/Nz;
+    *K = (n/Ny) % Nz;
+    *J =  n     % Ny;
+}
+
+void read_array_par(TArrayn::DTArray & ar, const char * filename,
+        int size_x, int size_y, int size_z, MPI_Comm c) {
+    /* Read from an on-disk array of size_x by size_y by size_z to the local
+     *            array ar, respecting that ar will probably be a subset of the full
+     *                       array.  Required backend for reading restart files */
+    GeneralArrayStorage<3> file_order; // Array storage order for on-file array
+    /* Copied from write_array, above */
+    file_order.ordering()[0] = secondDim;
+    file_order.ordering()[1] = thirdDim;
+    file_order.ordering()[2] = firstDim;
+
+    int myrank, numproc;
+    int fh_status;
+    int count, offset;
+    MPI_Comm_rank(c,&myrank);
+    MPI_Comm_size(c,&numproc);
+    MPI_File fh;
+    MPI_Status status;
+
+    // Open the file
+    fh_status = MPI_File_open(c, const_cast<char*>(filename), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+
+    fprintf(stderr,"Processor %d mapping file %s\n",myrank,filename);
+
+    count = size_x*size_y*size_z/numproc;
+    double *disk_data = new double[count];
+    offset = count*myrank;
+    MPI_File_seek(fh, offset*sizeof(double), MPI_SEEK_SET);
+    MPI_File_read(fh, disk_data, count, MPI_DOUBLE, &status);
+
+    // I have no idea how Blitz works, so I'm
+    // just going to loop through the points
+    int Ix, Iy, Iz;
+    for (int II = 0; II < size_x*size_y*size_z/numproc; II++) {
+        convert_index_2(offset + II, size_x, size_y, size_z, &Ix, &Iy, &Iz);
+        ar(Ix,Iy,Iz) = disk_data[II];
+    }
+    delete[] disk_data;
+
+    MPI_Barrier(c);
+    MPI_File_close(&fh);
+    MPI_Barrier(c);
+}
+
 } // End namespace
 
