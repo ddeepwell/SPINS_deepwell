@@ -12,7 +12,7 @@ DEBUG?=false
 OPTIM?=true
 # Compile with extra optimizations that may require significantly
 # longer for compilation
-SLOW_OPTIM?=false
+SLOW_OPTIM?=true
 
 # If MPICXX isn't separately defined, then set it to be the same
 # as CXX

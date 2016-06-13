@@ -20,8 +20,8 @@ namespace TArrayn {
 
 using blitz::TinyVector;
 
-//const int FFTW_PLAN_TYPE = FFTW_EXHAUSTIVE;
-const int FFTW_PLAN_TYPE = FFTW_MEASURE;
+const int FFTW_PLAN_TYPE = FFTW_EXHAUSTIVE;
+//const int FFTW_PLAN_TYPE = FFTW_MEASURE;
 //const int FFTW_PLAN_TYPE = FFTW_ESTIMATE;
 
 /* Real-to-real transforms; currently only DCT is implemented.  A DST may
