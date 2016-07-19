@@ -1,4 +1,5 @@
 #include "BaseCase.hpp"
+#include "Science.hpp"
 #include "NSIntegrator.hpp"
 #include "TArray.hpp"
 #include <blitz/array.h>
@@ -103,19 +104,13 @@ void BaseCase::do_mapping(DTArray & xgrid, DTArray & ygrid, DTArray & zgrid) {
 }
 
 /* Physical parameters */
-double BaseCase::get_visco() const {
-    return 0;
-}
-double BaseCase::get_diffusivity(int t) const {
-    return 0;
-}
-double BaseCase::get_rot_f() const {
-    return 0;
-}
-int BaseCase::get_restart_sequence() const {
-    return 0;
-}
-
+double BaseCase::get_visco()            const { return 0; }
+double BaseCase::get_diffusivity(int t) const { return 0; }
+double BaseCase::get_rot_f()            const { return 0; }
+int BaseCase::get_restart_sequence()    const { return 0; }
+double BaseCase::get_plot_interval()    const { return 0; }
+double BaseCase::get_dt_max()           const { return 0; }
+double BaseCase::get_next_plot()              { return 0; }
 
 /* Initialization */
 double BaseCase::init_time() const {
@@ -130,8 +125,30 @@ void BaseCase::init_tracers(vector<DTArray *> & tracers) {
     }
 }
 
+/* Check and modify the timestep in order to land evenly on a plot time */
 double BaseCase::check_timestep(double step, double now) {
-    return step; // Default, accept the given stepsize
+    // Check time step
+    if (step < 1e-9) {
+        // Timestep's too small, somehow stuff is blowing up
+        if (master()) fprintf(stderr,"Tiny timestep (%e), aborting\n",step);
+        return -1;
+    } else if (step > get_dt_max()) {
+        // Cap the maximum timestep size
+        step = get_dt_max();
+    }
+
+    // Now, calculate how many timesteps remain until the next writeout
+    double until_plot = get_next_plot() - now;
+    int steps = ceil(until_plot / step);
+    // Where will we be after (steps) timesteps of the current size?
+    double real_until_plot = steps*step;
+    // If that's close enough to the real writeout time, that's fine.
+    if (fabs(until_plot - real_until_plot) < 1e-6*get_plot_interval()) {
+        return step;
+    } else {
+        // Otherwise, square up the timeteps.  This will always shrink the timestep.
+        return (until_plot / steps);
+    }
 }
 
 /* Forcing */
@@ -235,8 +252,32 @@ void BaseCase::automatic_grid(double MinX, double MinY, double MinZ,
     if (zza) delete zz;
 }
 
+/* Read velocities from matlab output */
+void BaseCase::init_vels_matlab(DTArray & u, DTArray & v, DTArray & w,
+        const std::string & u_filename, const std::string & v_filename, const std::string & w_filename) {
+    init_matlab("u",u_filename,u);
+    if (v_filename != "" && (size_y() >> 1 || get_rot_f() != 0)) {
+        init_matlab("v",v_filename,v);
+    } else {
+        v = 0;
+    }
+    init_matlab("w",w_filename,w);
+}
+
+/* Read velocities from ctype output */
+void BaseCase::init_vels_ctype(DTArray & u, DTArray & v, DTArray & w,
+        const std::string & u_filename, const std::string & v_filename, const std::string & w_filename) {
+    init_ctype("u",u_filename,u);
+    if (v_filename != "" && (size_y() >> 1 || get_rot_f() != 0)) {
+        init_ctype("v",v_filename,v);
+    } else {
+        v = 0;
+    }
+    init_ctype("w",w_filename,w);
+}
+
 /* Read velocities from regular output */
-void BaseCase::init_vels_restart(DTArray & u, DTArray & v, DTArray & w){
+void BaseCase::init_vels_restart(DTArray & u, DTArray & v, DTArray & w) {
     /* Restarting, so build the proper filenames and load the data into u, v, w */
     char filename[100];
 
@@ -286,7 +327,6 @@ void BaseCase::init_vels_dump(DTArray & u, DTArray & v, DTArray & w){
 void BaseCase::init_tracer_restart(const std::string & field, DTArray & the_tracer){
     /* Restarting, so build the proper filenames and load the data */
     char filename[100];
-
     snprintf(filename,100,"%s.%d",field.c_str(),get_restart_sequence());
     if (master()) fprintf(stdout,"Reading %s from %s\n",field.c_str(),filename);
     read_array_par(the_tracer,filename,size_x(),size_y(),size_z());
@@ -295,12 +335,28 @@ void BaseCase::init_tracer_restart(const std::string & field, DTArray & the_trac
 
 /* Read field from dump output */
 void BaseCase::init_tracer_dump(const std::string & field, DTArray & the_tracer){
-    /* Restarting, so build the proper filenames and load the data */
     char filename[100];
-
     snprintf(filename,100,"%s.dump",field.c_str());
     if (master()) fprintf(stdout,"Reading %s from %s\n",field.c_str(),filename);
     read_array_par(the_tracer,filename,size_x(),size_y(),size_z());
+    return;
+}
+
+/* Read field from matlab data */
+void BaseCase::init_matlab(const std::string & field,
+                           const std::string & filename, DTArray & the_field){
+    if (master()) fprintf(stdout,"Reading MATLAB-format %s (%d x %d) from %s\n",
+                                  field.c_str(),size_x(),size_z(),filename.c_str());
+    read_2d_slice(the_field,filename.c_str(),size_x(),size_z());
+    return;
+}
+
+/* Read field from CTYPE data */
+void BaseCase::init_ctype(const std::string & field,
+                           const std::string & filename, DTArray & the_field){
+    if (master()) fprintf(stdout,"Reading CTYPE-format %s (%d x %d) from %s\n",
+                                  field.c_str(),size_x(),size_z(),filename.c_str());
+    read_2d_restart(the_field,filename.c_str(),size_x(),size_z());
     return;
 }
 
@@ -316,7 +372,6 @@ void BaseCase::write_chain(const char *filename, DTArray & val, int Iout, int Jo
     fprintf(fid,"\n");
     fclose(fid);
 }
-
 
 /* Check and dump */
 void BaseCase::check_and_dump(double clock_time, double real_start_time,
@@ -349,13 +404,13 @@ void BaseCase::check_and_dump(double clock_time, double real_start_time,
             fclose(dump_file);
         }
 
-        // Die  gracefully
+        // Die gracefully
         MPI_Finalize(); exit(0);
     }
 }
 
-/* Change dump log file for successful completion*/
-void BaseCase::successful_dump(int plot_number, double final_time, double plot_interval){
+/* Change dump log file for successful completion */
+void BaseCase::successful_dump(int plot_number, double final_time, double plot_interval) {
     if (master() && (plot_number == final_time/plot_interval)){
         // Write the dump time to a text file for restart purposes
         FILE * dump_file; 
@@ -364,5 +419,24 @@ void BaseCase::successful_dump(int plot_number, double final_time, double plot_i
         fprintf(dump_file,"The dump 'time' was:\n%.12g\n", 2*final_time);
         fprintf(dump_file,"The dump index was:\n%d\n", plot_number);
         fclose(dump_file);
+    }
+}
+
+/* Write plot time information */
+void BaseCase::write_plot_times(double write_time, double avg_write_time, double plot_interval,
+        int plotnum, bool restarting, double time) {
+    if (master()) {
+        // in log file
+        fprintf(stdout,"Write time: %.6g. Average write time: %.6g.\n",
+                write_time, avg_write_time);
+        fprintf(stdout,"*");
+        // track in specific file
+        FILE * plottimes_file = fopen("plot_times.txt","a");
+        assert(plottimes_file);
+        if (plotnum == get_restart_sequence()+1 && !restarting)
+            fprintf(plottimes_file,"Output number, Simulation time (s), Write time (s), Average write time (s)\n");
+        fprintf(plottimes_file,"%d, %.12f, %.12g, %.12g\n",
+                plotnum, time, write_time, avg_write_time);
+        fclose(plottimes_file);
     }
 }

@@ -6,6 +6,7 @@
 #include <blitz/array.h>
 #include "TArray.hpp"
 #include "NSIntegrator.hpp"
+#include "Science.hpp"
 
 using namespace TArrayn;
 using namespace NSIntegrator;
@@ -81,14 +82,25 @@ class BaseCase {
       virtual double get_diffusivity(int tracernum) const; // Diffusivity
       virtual double get_rot_f() const; // Physical rotation rate
       virtual int get_restart_sequence() const; // restart sequence
+      virtual double get_plot_interval() const; // time between plot writes
+      virtual double get_dt_max() const; // maximum time step
+      virtual double get_next_plot() ; // output number for the next write
 
       /* Initialization */
       virtual double init_time() const; // Initialization time
       virtual void init_tracers(vector<DTArray *> & tracers);
       virtual void init_vels(DTArray & u, DTArray & v, DTArray & w) { 
-         assert(0 && "init_vels not implemented");
-         abort();};
+          assert(0 && "init_vels not implemented");
+          abort();};
+      virtual void init_matlab(const std::string & field,
+              const std::string & filename, DTArray & the_field);
+      virtual void init_ctype(const std::string & field,
+              const std::string & filename, DTArray & the_field);
       // Initialize velocities and tracer
+      virtual void init_vels_matlab(DTArray & u, DTArray & v, DTArray & w,
+                      const std::string & u_filename, const std::string & v_filename, const std::string & w_filename);
+      virtual void init_vels_ctype(DTArray & u, DTArray & v, DTArray & w,
+                      const std::string & u_filename, const std::string & v_filename, const std::string & w_filename);
       virtual void init_vels_restart(DTArray & u, DTArray & v, DTArray & w); 
       virtual void init_vels_dump(DTArray & u, DTArray & v, DTArray & w); 
       virtual void init_tracer_restart(const std::string & field, DTArray & the_tracer); 
@@ -111,6 +123,7 @@ class BaseCase {
          abort();}; // 
 
       /* Numerical checks */
+      //virtual double check_timestep(double step, double now);
       virtual double check_timestep(double step, double now);
 
       // Get incoming gradient operator, for differentials in analysis.  This is a null-
@@ -157,6 +170,8 @@ class BaseCase {
       virtual void tracer_analysis(double t, int t_num, DTArray & tracer) {
          assert(0 && "tracer_analysis not implemented");
          abort();}; // Single-tracer analysis
+      void write_plot_times(double write_time, double avg_write_time, double plot_interval,
+                      int plotnum, bool restarting, double time);
 
       // Generate an automatic grid for unmapped cases
       virtual void automatic_grid(double MinX, double MinY, double MinZ, 
