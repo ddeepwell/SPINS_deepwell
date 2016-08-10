@@ -5,22 +5,11 @@
 /* ------------------ Top matter --------------------- */
 
 // Required headers
-#include "../Science.hpp"       // Additional analysis routines
-#include "../TArray.hpp"        // Custom extensions to the library to support FFTs
-#include "../Par_util.hpp"
-#include "../NSIntegrator.hpp"  // Time-integrator for the Navier-Stokes equations
 #include "../BaseCase.hpp"      // Support file that contains default implementations of many functions
 #include "../Options.hpp"       // config-file parser
 #include <random/normal.h>      // Blitz random number generator
-#include <random/uniform.h>
-#include <mpi.h>                // MPI parallel library
-#include <vector>
-#include <stdio.h>
-#include <string>
 #include <fstream>
 
-using std::string;
-using std::vector;
 using ranlib::Normal;
 
 // Tensor variables for indexing
@@ -32,20 +21,25 @@ blitz::thirdIndex kk;
 
 // Grid scales
 double Lx, Ly, Lz;          // Grid lengths (m)
-int    Nx, Ny, Nz;          // Number of points in x, y, z
+int    Nx, Ny, Nz;          // Number of points in x, y (span), z
 double MinX, MinY, MinZ;    // Minimum x/y/z points
 // Mapped grid?
 bool mapped;
 // Grid types
 DIMTYPE intype_x, intype_y, intype_z;
+string grid_type[3];
 
 // Physical parameters
 double g, rot_f, rho_0;     // gravity accel (m/s^2), Coriolis frequency (s^-1), reference density (kg/L)
-double VISCO;               // viscosity (m^2/s)
-double kappa_rho;           // diffusivity of density (m^2/s)
+double visco;               // viscosity (m^2/s)
+double mu;                  // dynamic viscosity (kg/(m·s))
+double kappa_T;             // diffusivity of temperature (m^2/s)
+double kappa_S;             // diffusivity of salt (m^2/s)
 
 // tracer options
-static const int RHO = 0;   // index for rho
+const int TEMP = 0;         // index for temperature
+const int SALT = 1;         // index for salt
+const int TRCR = 2;         // index for tracer
 bool tracer;
 double kappa_trc, tracer_g;
 
@@ -67,12 +61,13 @@ double real_start_time;
 double total_run_time;
 double avg_write_time;
 
-// Write out pressure?
-bool pressure_write;
-// Initial velocity perturbation
-double perturb;
-// Iteration counter
-int itercount = 0;
+// other options
+bool write_pressure;        // Write out pressure?
+double perturb;             // Initial velocity perturbation
+bool compute_stress;        // Compute surface stresses?
+bool compute_enstrophy;     // Compute Enstrophy?
+bool compute_dissipation;   // Compute dissipation?
+int itercount = 0;          // Iteration counter
 
 // Possible input data types
 static enum {
@@ -88,9 +83,9 @@ string xgrid_filename,
        u_filename,
        v_filename,
        w_filename,
-       rho_filename,
+       T_filename,
+       S_filename,
        tracer_filename;
-
 
 /* ------------------ Initialize the class --------------------- */
 
@@ -98,10 +93,16 @@ class userControl : public BaseCase {
     public:
         /* Grid arrays */
         DTArray *zgrid;
+        Array<double,1> xx, yy, zz;
+
+        /* arrays and operators for derivatives */
+        Grad * gradient_op;
+        DTArray *temp1;
+        DTArray *Hprime;
 
         /* Timing variables (for outputs and measuring time steps) */
         int plotnum;        // most recent output number (for plotting)
-        double last_plot;   // most recent output time 
+        double last_plot;   // most recent output time
         double next_plot;   // time of next output write
         // variables for timing steps
         double t_step;
@@ -117,24 +118,31 @@ class userControl : public BaseCase {
         int size_y() const { return Ny; }
         int size_z() const { return Nz; }
 
-        /* Set expansion (FREE_SLIP, NO_SLIP (in vertical) or PERIODIC) */
+        /* Set expansions (FREE_SLIP, NO_SLIP (in vertical) or PERIODIC) */
         DIMTYPE type_x() const { return intype_x; }
         DIMTYPE type_y() const { return intype_y; }
         DIMTYPE type_z() const { return intype_z; }
 
+        // Record the gradient-taking object.  This is given by the NSIntegrator
+        // code, and it reflects the boundary types and any Jacobian-transform
+        void set_grad(Grad * in_grad) { gradient_op = in_grad; }
+
         /* Viscosity, diffusivity, and Coriolis frequency */
-        double get_visco() const { return VISCO; }
+        double get_rot_f() const { return rot_f; }
+        double get_visco() const { return visco; }
         double get_diffusivity(int t_num) const {
             switch (t_num) {
-                case RHO:
-                    return kappa_rho;
-                case 1:
+                case TEMP:
+                    return kappa_T;
+                case SALT:
+                    return kappa_S;
+                case TRCR:
                     return kappa_trc;
                 default:
-                    assert(0 && "Invalid tracer number!");
+                    if (master()) fprintf(stderr,"Invalid tracer number!\n");
+                    MPI_Finalize(); exit(1);
             }
         }
-        double get_rot_f() const { return rot_f; }
 
         /* Temporal values */
         double init_time() const { return initial_time; }
@@ -144,7 +152,7 @@ class userControl : public BaseCase {
         double get_next_plot() { return next_plot; }
 
         /* Number of tracers */
-        int numActive() const { return 1; }
+        int numActive() const { return 2; }
         int numPassive() const {
             if (tracer) return 1;
             else return 0;
@@ -183,12 +191,10 @@ class userControl : public BaseCase {
             // if restarting
             if (restarting and (!restart_from_dump)) {
                 init_vels_restart(u, v, w);
-            }
-            else if (restarting and restart_from_dump) {
+            } else if (restarting and restart_from_dump) {
                 init_vels_dump(u, v, w);
-            }
-            // else start from other data formats
-            else {
+            } else {
+                // else start from other data formats
                 switch(input_data_types) {
                     case MATLAB: // MATLAB data
                         init_vels_matlab(u, v, w, u_filename, v_filename, w_filename);
@@ -197,91 +203,79 @@ class userControl : public BaseCase {
                         init_vels_ctype(u, v, w, u_filename, v_filename, w_filename);
                         break;
                     case FULL3D:
-                        assert(0 && "If Full 3D fields already exist, turn restart on.");
+                        if (master()) fprintf(stderr,"FULL3D option chosen, turn restart on\n");
+                        MPI_Finalize(); exit(1);
                 }
 
                 // Add a random perturbation to trigger any 3D instabilities
-                if ( !restarting ) {
-                    int myrank;
-                    MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
-                    Normal<double> rnd(0,1);
-                    for (int i = u.lbound(firstDim); i <= u.ubound(firstDim); i++) {
-                        rnd.seed(i);
-                        for (int j = u.lbound(secondDim); j <= u.ubound(secondDim); j++) {
-                            for (int k = u.lbound(thirdDim); k <= u.ubound(thirdDim); k++) {
-                                u(i,j,k) *= 1+perturb*rnd.random();
+                int myrank;
+                MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+                Normal<double> rnd(0,1);
+                for (int i = u.lbound(firstDim); i <= u.ubound(firstDim); i++) {
+                    rnd.seed(i);
+                    for (int j = u.lbound(secondDim); j <= u.ubound(secondDim); j++) {
+                        for (int k = u.lbound(thirdDim); k <= u.ubound(thirdDim); k++) {
+                            u(i,j,k) *= 1+perturb*rnd.random();
+                            if ( Ny > 1)
                                 v(i,j,k) *= 1+perturb*rnd.random();
-                                w(i,j,k) *= 1+perturb*rnd.random();
-                            }
+                            w(i,j,k) *= 1+perturb*rnd.random();
                         }
                     }
                 }
 
-                // Write the arrays and matlab readers
-                write_reader(u,"u",true);
-                write_reader(w,"w",true);
+                // Write the arrays
                 write_array(u,"u",plotnum);
                 write_array(w,"w",plotnum);
                 if (Ny > 1 || rot_f != 0) {
                     write_array(v,"v",plotnum);
-                    write_reader(v,"v",true);
                 }
             }
         }
 
         /* Initialze the tracers (density, and dyes) */
-        void init_tracer(int t_num, DTArray & tracer) {
-            if (t_num == 0) {
-                /* Density */
-                // if restarting
-                if (restarting and (!restart_from_dump)) {
-                    init_tracer_restart("rho",tracer);
+        void init_tracers(vector<DTArray *> & tracers) {
+            if (master()) fprintf(stdout,"Initializing tracers\n"); 
+            // Sanity checks
+            assert(numtracers() == int(tracers.size()));
+            assert(numtracers() >= 2);
+
+            // if restarting
+            if (restarting and (!restart_from_dump)) {
+                init_tracer_restart("t",*tracers[TEMP]);
+                init_tracer_restart("s",*tracers[SALT]);
+                if (tracer)
+                    init_tracer_restart("tracer",*tracers[TRCR]);
+            }
+            else if (restarting and restart_from_dump) {
+                init_tracer_dump("t",*tracers[TEMP]);
+                init_tracer_dump("s",*tracers[SALT]);
+                if (tracer)
+                    init_tracer_dump("tracer",*tracers[TRCR]);
+            }
+            else {
+                // else start from other data formats
+                switch (input_data_types) {
+                    case MATLAB:
+                        init_matlab("t",T_filename,*tracers[TEMP]);
+                        init_matlab("s",S_filename,*tracers[SALT]);
+                        if (tracer)
+                            init_matlab("tracer",tracer_filename,*tracers[TRCR]);
+                        break;
+                    case CTYPE:
+                        init_ctype("t",T_filename,*tracers[TEMP]);
+                        init_ctype("s",S_filename,*tracers[SALT]);
+                        if (tracer)
+                            init_ctype("tracer",tracer_filename,*tracers[TRCR]);
+                        break;
+                    case FULL3D:
+                        if (master()) fprintf(stderr,"FULL3D option chosen, turn restart on\n");
+                        MPI_Finalize(); exit(1);
                 }
-                else if (restarting and restart_from_dump) {
-                    init_tracer_dump("rho",tracer);
-                }
-                else {
-                    // else start from other data formats
-                    switch (input_data_types) {
-                        case MATLAB:
-                            init_matlab("rho",rho_filename,tracer);
-                            break;
-                        case CTYPE:
-                            init_ctype("rho",rho_filename,tracer);
-                            break;
-                        case FULL3D:
-                            assert(0 && "If Full 3D fields already exist, turn restart on.");
-                    }
-                    // Write the arrays and matlab readers
-                    write_array(tracer,"rho",plotnum);
-                    write_reader(tracer,"rho",true);
-                    // and for pressure if it is wanted
-                    if (pressure_write)
-                        write_reader(tracer,"p",true);
-                }
-            } else if (t_num == 1) {
-                /* Passive tracer */
-                // if restarting
-                if (restarting and (!restart_from_dump)) {
-                    init_tracer_restart("tracer",tracer);
-                }
-                else if (restarting and restart_from_dump) {
-                    init_tracer_dump("tracer",tracer);
-                }
-                else {
-                    // else start from other data formats
-                    switch (input_data_types) {
-                        case MATLAB:
-                            init_matlab("tracer",tracer_filename,tracer);
-                        case CTYPE:
-                            init_ctype("tracer",tracer_filename,tracer);
-                        case FULL3D:
-                            assert(0 && "If Full 3D fields already exist, turn restart on.");
-                    }
-                    // Write the arrays and matlab readers
-                    write_array(tracer,"tracer",plotnum);
-                    write_reader(tracer,"tracer",true);
-                }
+                // Write the arrays
+                write_array(*tracers[TEMP],"t",plotnum);
+                write_array(*tracers[SALT],"s",plotnum);
+                if (tracer)
+                    write_array(*tracers[TRCR],"tracer",plotnum);
             }
         }
 
@@ -291,17 +285,32 @@ class userControl : public BaseCase {
                 vector<DTArray *> & tracers, vector<DTArray *> & tracers_f) {
             u_f = +rot_f*v;
             v_f = -rot_f*u;
-            w_f = -g*((*tracers[0]))/rho_0;
-            *(tracers_f[0]) = 0;
+            w_f = -g*eqn_of_state(*tracers[TEMP],*tracers[SALT]) / rho_0;
+            *tracers_f[TEMP] = 0;
+            *tracers_f[SALT] = 0;
             if (tracer) {
-                *(tracers_f[1]) = 0;
-                w_f = w_f - tracer_g*((*tracers[1]));
+                *tracers_f[TRCR] = 0;
+                w_f = w_f - tracer_g*(*tracers[TRCR]);
             }
         }
 
         /* Basic analysis, to write out the field periodically */
         void analysis(double time, DTArray & u, DTArray & v, DTArray & w,
-                vector<DTArray *> tracer, DTArray & pressure) {
+                vector<DTArray *> tracers, DTArray & pressure) {
+            // increase counter
+            itercount++;
+            // Set-up
+            if ( itercount == 1 ) {
+                temp1 = alloc_array(Nx,Ny,Nz);
+                if (compute_stress) {
+                    Hprime = alloc_array(Nx,Ny,1);
+                    if (mapped) {
+                        bottom_slope(*Hprime, *zgrid, *temp1, gradient_op, grid_type, Nx, Ny, Nz);
+                    } else {
+                        *Hprime = 0;
+                    }   
+                }
+            }
 
             /* Write to disk if at correct time */
             if ((time - next_plot) > -1e-6*plot_interval) {
@@ -312,11 +321,12 @@ class userControl : public BaseCase {
                 if (Ny > 1 || rot_f != 0)
                     write_array(v,"v",plotnum);
                 write_array(w,"w",plotnum);
-                write_array(*tracer[RHO],"rho",plotnum);
-                if (pressure_write)
+                write_array(*tracers[TEMP],"t",plotnum);
+                write_array(*tracers[SALT],"s",plotnum);
+                if (tracer)
+                    write_array(*tracers[TRCR],"tracer",plotnum);
+                if (write_pressure)
                     write_array(pressure,"p",plotnum);
-                if (tracer.size() > 1)
-                    write_array(*tracer[1],"tracer",plotnum);
                 // update next plot time
                 next_plot = next_plot + plot_interval;
 
@@ -328,8 +338,7 @@ class userControl : public BaseCase {
                 write_plot_times(clock_time-t_step, avg_write_time, plot_interval,
                         plotnum, restarting, time);
             }
-            // increase counter and update clocks
-            itercount++;
+            // update clocks
             if (master()) {
                 clock_time = MPI_Wtime();
                 if (itercount == 1) {
@@ -339,27 +348,48 @@ class userControl : public BaseCase {
                 }
             }
 
-            // Also, calculate and write out useful information: maximum u, v, w...
+            // Also, calculate and write out useful information
+
+            // total dissipation
+            double diss_tot = 0;
+            if (compute_dissipation) {
+                dissipation(u, v, w, *temp1, gradient_op, grid_type, Nx, Ny, Nz, mu);
+                diss_tot = pssum(sum((*temp1)*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            }
+            // Energy
+            double ke_tot = pssum(sum(0.5*rho_0*(u*u + v*v + w*w)*
+                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            double pe_tot;
+            if (mapped) {
+                pe_tot = pssum(sum(eqn_of_state(*tracers[TEMP],*tracers[SALT])*
+                            g*((*zgrid)(ii,jj,kk) - MinZ)*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            } else {
+                pe_tot = pssum(sum(eqn_of_state(*tracers[TEMP],*tracers[SALT])*
+                            g*(zz(kk) - MinZ)*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            }
+            // max of fields
             double max_u = psmax(max(abs(u)));
             double max_v = psmax(max(abs(v)));
             double max_w = psmax(max(abs(w)));
             double max_ke = psmax(max(0.5*rho_0*(u*u + v*v + w*w)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            double ke_tot = pssum(sum(0.5*rho_0*(u*u + v*v + w*w)*
-                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            double pe_tot = pssum(sum((rho_0*(1+*tracer[RHO]))*g*((*zgrid)(ii,jj,kk) - MinZ)*
-                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk))); // assumes density is density anomaly
-            double max_rho = psmax(max(abs(*tracer[RHO])));
+            double max_temp = psmax(max(abs(*tracers[TEMP])));
+            double max_salt = psmax(max(abs(*tracers[SALT])));
             if (master() and itercount == 1 and !restarting) {
                 // create file for other analysis variables and write the column headers
                 double t_startup = clock_time - real_start_time;
                 fprintf(stdout,"Start-up time: %.6g s.\n",t_startup);
                 FILE * analysis_file = fopen("analysis.txt","a");
                 assert(analysis_file);
-                fprintf(analysis_file,"Iter, Clock time, Sim time, "
-                        "Max U, Max V, Max W, Max Density");
-                if (tracer.size() > 1)
-                    fprintf(analysis_file,", Max Tracer");
+                fprintf(analysis_file,"Iter, Clock_time, Sim_time, "
+                        "Max_U, Max_V, Max_W, "
+                        "Max_KE, Total_KE, Total_PE, Total_dissipation, "
+                        "Max_temperature, Max_salinity");
+                if (tracer)
+                    fprintf(analysis_file,", Max_tracer");
                 fprintf(analysis_file,"\n");
                 fclose(analysis_file);
             }
@@ -367,27 +397,44 @@ class userControl : public BaseCase {
                 /* add to the analysis file at each time step */
                 FILE * analysis_file = fopen("analysis.txt","a");
                 assert(analysis_file);
-                fprintf(analysis_file,"%d %.12g %.12f "
-                        "%.12g %.12g %.12g %.12g ",
+                fprintf(analysis_file,"%d, %.12g, %.12f, "
+                        "%.12g, %.12g, %.12g, "
+                        "%.12g, %.12g, %.12g, %.12g, "
+                        "%.12g, %.12g",
                         itercount,t_step,time,
-                        max_u,max_v,max_w,max_rho);
-                if (tracer.size() > 1){
-                    double max_dye = psmax(max(abs(*tracer[1])));
-                    fprintf(analysis_file," %.12g",max_dye);
+                        max_u,max_v,max_w,
+                        max_ke,ke_tot,pe_tot,diss_tot,
+                        max_temp,max_salt);
+                if (tracer){
+                    double max_dye = psmax(max(abs(*tracers[TRCR])));
+                    fprintf(analysis_file,", %.12g",max_dye);
                 }
                 fprintf(analysis_file,"\n");
                 fclose(analysis_file);
                 /* and to the log file */
                 fprintf(stdout,"[%d] (%.4g) %.4f: "
                         "%.4g %.4g %.4g "
-                        "%.4g",
+                        "%.4g %.4g %.4g %.4g "
+                        "%.4g %.4g",
                         itercount,t_step,time,
-                        max_u,max_v,max_w,max_rho);
-                if (tracer.size() > 1){
-                    double max_dye = psmax(max(abs(*tracer[1])));
+                        max_u,max_v,max_w,
+                        max_ke,ke_tot,pe_tot,diss_tot,
+                        max_temp,max_salt);
+                if (tracer){
+                    double max_dye = psmax(max(abs(*tracers[TRCR])));
                     fprintf(stdout," %.4g",max_dye);
                 }
                 fprintf(stdout,"\n");
+            }
+
+            // compute other things, if wanted
+            if (compute_stress) {
+                stresses(u, v, w, *Hprime, *temp1, gradient_op, grid_type,
+                        mu, time, itercount, restarting);
+            }
+            if (compute_enstrophy) {
+                enstrophy(u, v, w, *temp1, gradient_op, grid_type,
+                        time, itercount, restarting);
             }
 
             // Determine last plot if restarting from the dump case
@@ -397,7 +444,7 @@ class userControl : public BaseCase {
             }
             // see if close to end of compute time and dump
             check_and_dump(clock_time, real_start_time, compute_time, time, avg_write_time,
-                    plotnum, u, v, w, tracer);
+                    plotnum, u, v, w, tracers);
             /* Change dump log file if successfully reached final time
                the dump time will be twice final time so that a restart won't actually start */
             successful_dump(plotnum, final_time, plot_interval);
@@ -405,17 +452,20 @@ class userControl : public BaseCase {
 
         // User specified variables to dump
         void write_variables(DTArray & u,DTArray & v, DTArray & w,
-                vector<DTArray *> & tracer) {
+                vector<DTArray *> & tracers) {
             write_array(u,"u.dump",-1);
             write_array(v,"v.dump",-1);
             write_array(w,"w.dump",-1);
-            write_array(*tracer[RHO],"rho.dump",-1);
-            if (tracer.size() > 1)
-                write_array(*tracer[1],"tracer.dump",-1);
+            write_array(*tracers[TEMP],"t.dump",-1);
+            write_array(*tracers[SALT],"s.dump",-1);
+            if (tracer)
+                write_array(*tracers[TRCR],"tracer.dump",-1);
         }
 
+        // Constructor: Initialize local variables
         userControl() :
-            // Initialize the local variables
+            xx(split_range(Nx)), yy(Ny), zz(Nz),
+            gradient_op(0),
             plotnum(restart_sequence), 
             next_plot(restart_time + plot_interval)
     {   compute_quadweights(
@@ -425,7 +475,7 @@ class userControl : public BaseCase {
     // If this is an unmapped grid, generate/write the
     // 3D grid files
     if (!is_mapped()) {
-        automatic_grid(MinX, MinY, MinZ);
+        automatic_grid(MinX, MinY, MinZ, &xx, &yy, &zz);
     }
     }
 };
@@ -435,7 +485,7 @@ int main(int argc, char ** argv) {
     /* Initialize MPI.  This is required even for single-processor runs,
        since the inner routines assume some degree of parallelization,
        even if it is trivial. */
-    MPI_Init(&argc,&argv);
+    MPI_Init(&argc, &argv);
     /* Change filtering from default if you want to */
     //f_strength = -.25;
     //f_cutoff = 0.6;
@@ -446,16 +496,17 @@ int main(int argc, char ** argv) {
     options_init();
 
     option_category("Grid Options");
-    add_option("Lx",&Lx,"X-length");
-    add_option("Ly",&Ly,1.0,"Y-length");
-    add_option("Lz",&Lz,"Z-length");
+    add_option("Lx",&Lx,"Length of tank");
+    add_option("Ly",&Ly,1.0,"Width of tank");
+    add_option("Lz",&Lz,"Height of tank");
     add_option("Nx",&Nx,"Number of points in X");
     add_option("Ny",&Ny,1,"Number of points in Y");
     add_option("Nz",&Nz,"Number of points in Z");
-    add_option("min_x",&MinX,0.0,"Unmapped grids: Minimum X-value");
+    add_option("min_x",&MinX,0.0,"Minimum X-value");
     add_option("min_y",&MinY,0.0,"Minimum Y-value");
     add_option("min_z",&MinZ,0.0,"Minimum Z-value");
 
+    option_category("Grid expansion options");
     string xgrid_type, ygrid_type, zgrid_type;
     add_option("type_x",&xgrid_type,
             "Grid type in X.  Valid values are:\n"
@@ -483,15 +534,17 @@ int main(int argc, char ** argv) {
     add_option("u_file",&u_filename,"U-velocity filename");
     add_option("v_file",&v_filename,"","V-velocity filename");
     add_option("w_file",&w_filename,"W-velocity filename");
-    add_option("rho_file",&rho_filename,"Rho (density) filename");
+    add_option("T_file",&T_filename,"Temperature filename");
+    add_option("S_file",&S_filename,"Salt filename");
     add_option("tracer_file",&tracer_filename,"Tracer filename");
 
     option_category("Physical parameters");
     add_option("g",&g,9.81,"Gravitational acceleration");
     add_option("rot_f",&rot_f,0.0,"Coriolis force term");
-    add_option("rho_0",&rho_0,1.0,"Reference density");
-    add_option("visco",&VISCO,0.0,"Kinematic viscosity");
-    add_option("kappa",&kappa_rho,0.0,"Thermal diffusivity");
+    add_option("rho_0",&rho_0,1000.0,"Reference density");
+    add_option("visco",&visco,0.0,"Kinematic viscosity");
+    add_option("kappa_T",&kappa_T,0.0,"Thermal diffusivity");
+    add_option("kappa_S",&kappa_S,0.0,"Thermal diffusivity");
 
     option_category("Second tracer");
     add_switch("enable_tracer",&tracer,"Enable evolution of a second tracer");
@@ -513,9 +566,12 @@ int main(int argc, char ** argv) {
     add_option("restart_from_dump",&restart_from_dump,false,"If restart from dump");
     add_option("compute_time",&compute_time,-1.0,"Time permitted for computation");
 
-    option_category("Write pressure");
-    add_option("pressure_write",&pressure_write,false,"Enable the outputting of the pressure");
-    add_option("perturb",&perturb,0.0,"Velocity perturbation (multiplicative white noise) applied to read-in data.");
+    option_category("Other options");
+    add_option("write_pressure",&write_pressure,false,"Enable the outputting of the pressure");
+    add_option("perturb",&perturb,0.0,"Velocity perturbation applied to read-in data.");
+    add_option("compute_stress",&compute_stress,true,"Calculate the top and bottom stresses?");
+    add_option("compute_enstrophy",&compute_enstrophy,true,"Calculate enstrophy?");
+    add_option("compute_dissipation",&compute_dissipation,true,"Calculate dissipation?");
 
     // Parse the options from the command line and config file
     options_parse(argc,argv);
@@ -545,7 +601,8 @@ int main(int argc, char ** argv) {
         // Kill simulation if already past final time
         if (restart_time > final_time){
             if (master()){
-                fprintf(stderr,"Restart dump time (%.4g) is past final time (%.4g). Quitting now.\n",restart_time,final_time);
+                fprintf(stderr,"Restart dump time (%.4g) is past final time (%.4g). "
+                        "Quitting now.\n",restart_time,final_time);
             }
             MPI_Finalize(); exit(1);
         }
@@ -555,53 +612,77 @@ int main(int argc, char ** argv) {
         avg_write_time = max(100.0*Nx*Ny*Nz/pow(512.0,3), 20.0);
     }
 
-    /* ------------------ Set grid and file types --------------------- */
+    /* ------------------ Set boundary conditions and file types --------------------- */
     // x
-    if (xgrid_type == "FOURIER") {
-        intype_x = PERIODIC;
-    } else if (xgrid_type == "FREE_SLIP") {
-        intype_x = FREE_SLIP;
-    } else if (xgrid_type == "NO_SLIP") {
-        intype_x = NO_SLIP;
-    } else {
+    if (xgrid_type == "FOURIER") { intype_x = PERIODIC; }
+    else if (xgrid_type == "FREE_SLIP") { intype_x = FREE_SLIP; }
+    else if (xgrid_type == "NO_SLIP") { intype_x = NO_SLIP; }
+    else {
         if (master())
             fprintf(stderr,"Invalid option %s received for type_x\n",xgrid_type.c_str());
         MPI_Finalize(); exit(1);
     }
     // y
-    if (ygrid_type == "FOURIER") {
-        intype_y = PERIODIC;
-    } else if (ygrid_type == "FREE_SLIP") {
-        intype_y = FREE_SLIP;
-    } else {
+    if (ygrid_type == "FOURIER") { intype_y = PERIODIC; }
+    else if (ygrid_type == "FREE_SLIP") { intype_y = FREE_SLIP; }
+    else {
         if (master())
             fprintf(stderr,"Invalid option %s received for type_y\n",ygrid_type.c_str());
         MPI_Finalize(); exit(1);
     }
     // z
-    if (zgrid_type == "FOURIER") {
-        intype_z = PERIODIC;
-    } else if (zgrid_type == "FREE_SLIP") {
-        intype_z = FREE_SLIP;
-    } else if (zgrid_type == "NO_SLIP") {
-        intype_z = NO_SLIP;
-    } else {
+    if (zgrid_type == "FOURIER") { intype_z = PERIODIC; }
+    else if (zgrid_type == "FREE_SLIP") { intype_z = FREE_SLIP; }
+    else if (zgrid_type == "NO_SLIP") { intype_z = NO_SLIP; }
+    else {
         if (master())
             fprintf(stderr,"Invalid option %s received for type_z\n",zgrid_type.c_str());
         MPI_Finalize(); exit(1);
     }
     // Input filetypes
-    if (datatype=="MATLAB") {
-        input_data_types = MATLAB;
-    } else if (datatype == "CTYPE") {
-        input_data_types = CTYPE;
-    } else if (datatype == "FULL") {
-        input_data_types = FULL3D;
-    } else {
+    if (datatype=="MATLAB") { input_data_types = MATLAB; } 
+    else if (datatype == "CTYPE") { input_data_types = CTYPE; }
+    else if (datatype == "FULL") { input_data_types = FULL3D; }
+    else {
         if (master())
             fprintf(stderr,"Invalid option %s received for file_type\n",datatype.c_str());
         MPI_Finalize(); exit(1);
     }
+    // check for proper expansion types
+    if (mapped and zgrid_type != "NO_SLIP") {
+        if (master())
+            fprintf(stderr,"Z-expansion is %s, but the field is mapped. Change in spins.conf to 'NO_SLIP'.\n",
+                    zgrid_type.c_str());
+        MPI_Finalize(); exit(1);
+    }
+
+    // vector of string types
+    grid_type[0] = xgrid_type;
+    grid_type[1] = ygrid_type;
+    grid_type[2] = zgrid_type;
+
+    /* ------------------ Adjust some parameters --------------------- */
+    // adjust Ly for 2D
+    if (Ny==1 and Ly!=1.0){
+        Ly = 1.0;
+        if (master()) {
+            fprintf(stdout,"WARNING:\n");
+            fprintf(stdout,"\tSimulation is 2 dimensional, Ly has been changed to 1.0 for normalization.\n");
+        }
+    }
+    // check for proper reference density
+    if (rho_0 != 1000.0){
+        rho_0 = 1000.0;
+        if (master()) {
+            fprintf(stdout,"WARNING:\n");
+            fprintf(stdout,"\tSimulation is using physical densities. rho_0 changed to 1000 kg/m^3.\n");
+        }
+    }
+
+    /* ------------------ Derived parameters --------------------- */
+
+    // Dynamic viscosity
+    mu = visco*rho_0;
 
     /* ------------------ Set correct initial time, and sequence --------------------- */
     if (restarting) {
@@ -620,10 +701,20 @@ int main(int argc, char ** argv) {
         restart_sequence = int(initial_time/plot_interval);
         if (fmod(initial_time,plot_interval) != 0.0) {
             if (master()) {
-                fprintf(stderr,"Warning: the initial time (%g) does not appear to be an even multiple of the plot interval (%g)\n",
+                fprintf(stderr,"Warning: the initial time (%g) "
+                        "does not appear to be an even multiple of the plot interval (%g)\n",
                         initial_time,plot_interval);
             }
         }
+    }
+
+    /* ------------------ Print some parameters --------------------- */
+    if (master()) {
+        fprintf(stdout,"Wave reader problem\n");
+        fprintf(stdout,"Using a %f x %f x %f grid of %d x %d x %d points\n",Lx,Ly,Lz,Nx,Ny,Nz);
+        fprintf(stdout,"g = %f, rot_f = %f, rho_0 = %f\n",g,rot_f,rho_0);
+        fprintf(stdout,"Time between plots: %g s\n",plot_interval);
+        fprintf(stdout,"Initial velocity perturbation: %g\n",perturb);
     }
 
     /* ------------------ Do stuff --------------------- */

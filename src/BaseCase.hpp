@@ -7,6 +7,7 @@
 #include "TArray.hpp"
 #include "NSIntegrator.hpp"
 #include "Science.hpp"
+#include <math.h>
 
 using namespace TArrayn;
 using namespace NSIntegrator;
@@ -98,11 +99,13 @@ class BaseCase {
               const std::string & filename, DTArray & the_field);
       // Initialize velocities and tracer
       virtual void init_vels_matlab(DTArray & u, DTArray & v, DTArray & w,
-                      const std::string & u_filename, const std::string & v_filename, const std::string & w_filename);
+              const std::string & u_filename, const std::string & v_filename, const std::string & w_filename);
       virtual void init_vels_ctype(DTArray & u, DTArray & v, DTArray & w,
-                      const std::string & u_filename, const std::string & v_filename, const std::string & w_filename);
+              const std::string & u_filename, const std::string & v_filename, const std::string & w_filename);
       virtual void init_vels_restart(DTArray & u, DTArray & v, DTArray & w); 
       virtual void init_vels_dump(DTArray & u, DTArray & v, DTArray & w); 
+      virtual void init_grid_restart(const std::string & component,
+              const std::string & filename, DTArray & grid);
       virtual void init_tracer_restart(const std::string & field, DTArray & the_tracer); 
       virtual void init_tracer_dump(const std::string & field,  DTArray & the_tracer); 
 
@@ -171,7 +174,13 @@ class BaseCase {
          assert(0 && "tracer_analysis not implemented");
          abort();}; // Single-tracer analysis
       void write_plot_times(double write_time, double avg_write_time, double plot_interval,
-                      int plotnum, bool restarting, double time);
+              int plotnum, bool restarting, double time);
+      void stresses(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & w,
+              TArrayn::DTArray & Hprime, TArrayn::DTArray & temp, TArrayn::Grad * gradient_op,
+              const string * grid_type, const double mu, double time, int itercount, bool restarting);
+      void enstrophy(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & w,
+              TArrayn::DTArray & temp, TArrayn::Grad * gradient_op, const string * grid_type,
+              double time, int itercount, bool restarting);
 
       // Generate an automatic grid for unmapped cases
       virtual void automatic_grid(double MinX, double MinY, double MinZ, 

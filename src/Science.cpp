@@ -154,123 +154,155 @@ void read_2d_slice(Array<double,3> & fillme, const char * filename,
    delete sliced; 
 }
    
+// X-component of vorticity
+void compute_vort_x(TArrayn::DTArray & v, TArrayn::DTArray & w, TArrayn::DTArray & vortx,
+        TArrayn::Grad * gradient_op, const string * grid_type) {
+    // Set-up
+    S_EXP expan[3];
+    assert(gradient_op);
 
-void vorticity(TArrayn::DTArray & u, TArrayn::DTArray & v, 
-      TArrayn::DTArray & w, 
-      TArrayn::DTArray * & vor_x, TArrayn::DTArray * & vor_y,
-      TArrayn::DTArray * & vor_z, double Lx, double Ly, double Lz,
-      int szx, int szy, int szz,
-      NSIntegrator::DIMTYPE DIM_X, NSIntegrator::DIMTYPE DIM_Y, 
-      NSIntegrator::DIMTYPE DIM_Z) {
-   static int Nx = 0, Ny = 0, Nz = 0;
-   static Transformer::Trans1D trans_x(szx,szy,szz,firstDim,
-                     (DIM_X == PERIODIC ? FOURIER : REAL)),
-                  trans_y(szx,szy,szz,secondDim,
-                     (DIM_Y == PERIODIC ? FOURIER : REAL)),
-                  trans_z (szx,szy,szz,thirdDim,
-                     (DIM_Z == PERIODIC ? FOURIER : REAL));
-   static blitz::TinyVector<int,3> 
-      local_lbounds(alloc_lbound(szx,szy,szz)),
-      local_extent(alloc_extent(szx,szy,szz));
-   static blitz::GeneralArrayStorage<3> 
-      local_storage(alloc_storage(szx,szy,szz));
-   static DTArray vort_x(local_lbounds,local_extent,local_storage),
-                  vort_y(local_lbounds,local_extent,local_storage),
-                  vort_z(local_lbounds,local_extent,local_storage),
-                  temp_a(local_lbounds,local_extent,local_storage);
-   /* Initialization */
-   if (Nx == 0 || Ny == 0 || Nz == 0) {
-      Nx = szx; Ny = szy; Nz = szz;
-   }
-   assert (Nx == szx && Ny == szy && Nz == szz);
-   /* x-vorticity is w_y - v_z */
-   vort_x = 0;
-   if (szy > 1) { // w_y
-      if (DIM_X == PERIODIC) {
-         deriv_fft(w,trans_y,temp_a);
-         vort_x = temp_a*(2*M_PI/Ly);
-      } else if (DIM_X == FREE_SLIP) {
-         deriv_dct(w,trans_y,temp_a);
-         vort_x = temp_a*(M_PI/Ly);
-      } else {
-         assert(DIM_X == NO_SLIP);
-         deriv_cheb(w,trans_y,temp_a);
-         vort_x = temp_a*(-2/Ly);
-      }
-   }
-   if (szz > 1) { // v_z
-      if (DIM_Z == PERIODIC) {
-         deriv_fft(v,trans_z,temp_a);
-         vort_x -= temp_a*(2*M_PI/Lz);
-      } else if (DIM_Z == FREE_SLIP) {
-         deriv_dct(v,trans_z,temp_a);
-         vort_x -= temp_a*(M_PI/Lz);
-      } else {
-         assert(DIM_Z == NO_SLIP);
-         deriv_cheb(v,trans_z,temp_a);
-         vort_x -= temp_a*(-2/Lz);
-      }
-   }
-   // y-vorticity is u_z - w_x
-   vort_y = 0;
-   if (szz > 1) { // u_z
-      if (DIM_Z == PERIODIC) {
-         deriv_fft(u,trans_z,temp_a);
-         vort_y = temp_a*(2*M_PI/Lz);
-      } else if (DIM_Z == FREE_SLIP) {
-         deriv_dct(u,trans_z,temp_a);
-         vort_y = temp_a*(M_PI/Lz);
-      } else {
-         assert(DIM_Z == NO_SLIP);
-         deriv_cheb(u,trans_z,temp_a);
-         vort_y = temp_a*(-2/Lz);
-      }
-   }
-   if (szx > 1) { // w_x
-      if (DIM_X == PERIODIC) {
-         deriv_fft(w,trans_x,temp_a);
-         vort_y -= temp_a*(2*M_PI/Lx);
-      } else if (DIM_X == FREE_SLIP) {
-         deriv_dct(w,trans_x,temp_a);
-         vort_y -= temp_a*(M_PI/Lx);
-      } else {
-         assert(DIM_X == NO_SLIP);
-         deriv_cheb(w,trans_x,temp_a);
-         vort_y -= temp_a*(-2/Lx);
-      }
-   }
-   // And finally, vort_z is v_x - u_y
-   vort_z = 0;
-   if (szx > 1) { // v_x
-      if (DIM_X == PERIODIC) {
-         deriv_fft(v,trans_x,temp_a);
-         vort_z = temp_a*(2*M_PI/Lx);
-      } else if (DIM_X == FREE_SLIP) {
-         deriv_dct(v,trans_x,temp_a);
-         vort_z = temp_a*(M_PI/Lx);
-      } else {
-         assert(DIM_X == NO_SLIP);
-         deriv_cheb(v,trans_x,temp_a);
-         vort_z = temp_a*(-2/Lx);
-      }
-   }
-   if (szy > 1) { // u_y
-      if (DIM_Y == PERIODIC) {
-         deriv_fft(u,trans_y,temp_a);
-         vort_z -= temp_a*(2*M_PI/Ly);
-      } else if (DIM_Y == FREE_SLIP) {
-         deriv_dct(u,trans_y,temp_a);
-         vort_z -= temp_a*(M_PI/Ly);
-      } else {
-         assert(DIM_Y == NO_SLIP);
-         deriv_cheb(u,trans_y,temp_a);
-         vort_z -= temp_a*(-2/Ly);
-      }
-   }
-   vor_x = &vort_x;
-   vor_y = &vort_y;
-   vor_z = &vort_z;
-   return;
+    // Setup for dv/dz
+    find_expansion(grid_type, expan, "v", "");
+    gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
+    // get dv/dz
+    gradient_op->get_dz(&vortx,false);
+    // Invert to get the negative
+    vortx = (-1)*vortx;
+
+    // Setup for dw/dy
+    find_expansion(grid_type, expan, "w", "");
+    gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
+    // get dw/dy, and add to vortx
+    gradient_op->get_dy(&vortx,true);
+}
+
+// Y-component of vorticity
+void compute_vort_y(TArrayn::DTArray & u, TArrayn::DTArray & w, TArrayn::DTArray & vorty,
+       TArrayn::Grad * gradient_op, const string * grid_type) {
+    // Set-up
+    S_EXP expan[3];
+    assert(gradient_op);
+
+    // Setup for dw/dx
+    find_expansion(grid_type, expan, "w", "");
+    gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
+    // get dw/dx
+    gradient_op->get_dx(&vorty,false);
+    // Invert to get the negative
+    vorty = (-1)*vorty;
+
+    // Setup for du/dz
+    find_expansion(grid_type, expan, "u", "");
+    gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
+    // get du/dz
+    gradient_op->get_dz(&vorty,true);
+}
+
+// Z-component of vorticity
+void compute_vort_z(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & vortz,
+       TArrayn::Grad * gradient_op, const string * grid_type) {
+    // Set-up
+    S_EXP expan[3];
+    assert(gradient_op);
+
+    // Setup for du/dy
+    find_expansion(grid_type, expan, "u", "");
+    gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
+    // get du/dy
+    gradient_op->get_dy(&vortz,false);
+    // Invert to get the negative
+    vortz = (-1)*vortz;
+
+    // Setup for dv/dx
+    find_expansion(grid_type, expan, "v", "");
+    gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
+    // get du/dz
+    gradient_op->get_dx(&vortz,true);
+}
+
+// Vorticity
+void compute_vorticity(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & w,
+        TArrayn::DTArray & vortx, TArrayn::DTArray & vorty, TArrayn::DTArray & vortz,
+        TArrayn::Grad * gradient_op, const string * grid_type) {
+    // compute each component
+    compute_vort_x(v, w, vortx, gradient_op, grid_type);
+    compute_vort_y(u, w, vorty, gradient_op, grid_type);
+    compute_vort_z(u, v, vortz, gradient_op, grid_type);
+}
+
+// Enstrophy Density: 1/2*(vort_x^2 + vort_y^2 + vort_z^2)
+void enstrophy_density(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & w,
+        TArrayn::DTArray & enst, TArrayn::Grad * gradient_op, const string * grid_type,
+        const int Nx, const int Ny, const int Nz) {
+    // initalize temporary array
+    static DTArray *temp = alloc_array(Nx,Ny,Nz);
+
+    // square vorticity components
+    compute_vort_x(v, w, *temp, gradient_op, grid_type);
+    enst = pow(*temp,2);
+    compute_vort_y(u, w, *temp, gradient_op, grid_type);
+    enst += pow(*temp,2);
+    compute_vort_z(u, v, *temp, gradient_op, grid_type);
+    enst += pow(*temp,2);
+    enst = 0.5*enst;
+}
+
+// Viscous dissipation: 2*mu*e_ij*e_ij
+void dissipation(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & w,
+        TArrayn::DTArray & diss, TArrayn::Grad * gradient_op, const string * grid_type,
+        const int Nx, const int Ny, const int Nz, const double visco) {
+    // Set-up
+    static DTArray *temp = alloc_array(Nx,Ny,Nz);
+    S_EXP expan[3];
+    assert(gradient_op);
+
+    // 1st term: e_11^2 = (du/dx)^2
+    find_expansion(grid_type, expan, "u", "");
+    gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
+    gradient_op->get_dx(temp,false);
+    diss = pow(*temp,2);
+    // 2nd term: e_22^2 = (dv/dy)^2
+    find_expansion(grid_type, expan, "v", "");
+    gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
+    gradient_op->get_dy(temp,false);
+    diss += pow(*temp,2);
+    // 3rd term: e_33^2 = (dw/dz)^2
+    find_expansion(grid_type, expan, "w", "");
+    gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
+    gradient_op->get_dz(temp,false);
+    diss += pow(*temp,2);
+    // 4th term: 2e_12^2 = 2*(1/2*(u_y + v_x))^2
+    // u_y
+    find_expansion(grid_type, expan, "u", "");
+    gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
+    gradient_op->get_dy(temp,false);
+    // v_x
+    find_expansion(grid_type, expan, "v", "");
+    gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
+    gradient_op->get_dx(temp,true);
+    diss += 2.0*pow(0.5*(*temp),2);
+    // 5th term: 2e_13^2 = 2*(1/2*(u_z + w_x))^2
+    // u_z
+    find_expansion(grid_type, expan, "u", "");
+    gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
+    gradient_op->get_dz(temp,false);
+    // w_x
+    find_expansion(grid_type, expan, "w", "");
+    gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
+    gradient_op->get_dx(temp,true);
+    diss += 2.0*pow(0.5*(*temp),2);
+    // 6th term: 2e_23^2 = 2*(1/2*(v_z + w_y))^2
+    // v_z
+    find_expansion(grid_type, expan, "v", "");
+    gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
+    gradient_op->get_dz(temp,false);
+    // w_y
+    find_expansion(grid_type, expan, "w", "");
+    gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
+    gradient_op->get_dy(temp,true);
+    diss += 2.0*pow(0.5*(*temp),2);
+    // multiply by 2*mu
+    diss *= 2.0*visco;
 }
 
 // Global arrays to store quadrature weights
@@ -360,4 +392,173 @@ const blitz::Array<double,1> * get_quad_z() {
       assert(0 && "Error: quadrature weights were not initalized before use");
    }
    return &_quadw_z;
+}
+
+// function to parse the expansion types
+void find_expansion(const string * grid_type, S_EXP * expan,
+        string deriv_filename, string base_field) {
+    const int x_ind = 0;
+    const int y_ind = 1;
+    const int z_ind = 2;
+
+    for ( int nn = 0; nn <= 2; nn++ ) {
+        if      (grid_type[nn] == "FOURIER") { expan[nn] = FOURIER; }
+        else if (grid_type[nn] == "NO_SLIP") { expan[nn] = CHEBY; }
+        else if (grid_type[nn] == "FREE_SLIP") { 
+            // setup for a first derivative 
+            if ( deriv_filename == "u" or base_field == "u" ) {
+                if      ( nn == x_ind ) { expan[nn] = SINE; }
+                else if ( nn == y_ind ) { expan[nn] = COSINE; }
+                else if ( nn == z_ind ) { expan[nn] = COSINE; }
+            }
+            else if ( deriv_filename == "v" or base_field == "v" ) {
+                if      ( nn == x_ind ) { expan[nn] = COSINE; }
+                else if ( nn == y_ind ) { expan[nn] = SINE; }
+                else if ( nn == z_ind ) { expan[nn] = COSINE; }
+            }
+            else if ( deriv_filename == "w" or base_field == "w") {
+                if      ( nn == x_ind ) { expan[nn] = COSINE; }
+                else if ( nn == y_ind ) { expan[nn] = COSINE; }
+                else if ( nn == z_ind ) { expan[nn] = SINE; }
+            }
+            else {
+                if      ( nn == x_ind ) { expan[nn] = COSINE; }
+                else if ( nn == y_ind ) { expan[nn] = COSINE; }
+                else if ( nn == z_ind ) { expan[nn] = COSINE; }
+            }
+        }   
+    }
+}
+// function to switch trig functions
+S_EXP swap_trig( S_EXP the_exp ) {
+    if ( the_exp == SINE ) {
+        return COSINE; }
+    else if ( the_exp == COSINE ) {
+        return SINE; }
+    else if ( the_exp == FOURIER ) {
+        return FOURIER; }
+    else if ( the_exp == CHEBY ) {
+        return CHEBY; }
+    else {
+        MPI_Finalize(); exit(1); // stop
+    }
+}
+
+
+// Bottom slope
+void bottom_slope(TArrayn::DTArray & Hprime, TArrayn::DTArray & zgrid,
+        TArrayn::DTArray & temp, TArrayn::Grad * gradient_op,
+        const string * grid_type, const int Nx, const int Ny, const int Nz) {
+    // Set-up
+    DTArray & z_x = *alloc_array(Nx,Ny,Nz);
+    blitz::Range all = blitz::Range::all();
+    blitz::firstIndex ii;
+    blitz::secondIndex jj;
+    blitz::thirdIndex kk;
+    S_EXP expan[3];
+    assert(gradient_op);
+    
+    // get bottom topography
+    Array<double,1> xx(split_range(Nx));
+    xx = zgrid(all,0,Nz-1);
+    // put into temp array, and take derivative
+    temp = xx(ii) + 0*jj + 0*kk;
+    find_expansion(grid_type, expan, "zgrid", "");
+    gradient_op->setup_array(&temp,expan[0],expan[1],expan[2]);
+    gradient_op->get_dx(&z_x);
+    // flatten to get 2D array
+    Hprime(all,all,0) = z_x(all,all,0);
+    delete &z_x, xx;
+}
+
+// Top Stress (along "topography" - x)
+void top_stress_x(TArrayn::DTArray & stress_x, TArrayn::DTArray & u,
+        TArrayn::DTArray & temp, TArrayn::Grad * gradient_op,
+        const string * grid_type, const double visco) {
+    // Set-up
+    blitz::Range all = blitz::Range::all();
+    S_EXP expan[3];
+    assert(gradient_op);
+
+    // du/dz
+    find_expansion(grid_type, expan, "u", "");
+    gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
+    gradient_op->get_dz(&temp,false);
+    // top stress
+    stress_x(all,all,0) = visco*temp(all,all,0);
+}
+// Top Stress (across "topography" - y)
+void top_stress_y(TArrayn::DTArray & stress_y, TArrayn::DTArray & v,
+        TArrayn::DTArray & temp, TArrayn::Grad * gradient_op,
+        const string * grid_type, const double visco) {
+    // Set-up
+    blitz::Range all = blitz::Range::all();
+    S_EXP expan[3];
+    assert(gradient_op);
+
+    // dv/dz
+    find_expansion(grid_type, expan, "v", "");
+    gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
+    gradient_op->get_dz(&temp,false);
+    // top stress
+    stress_y(all,all,0) = visco*temp(all,all,0);
+}
+// Bottom Stress (along topography - x)
+void bottom_stress_x(TArrayn::DTArray & stress_x, TArrayn::DTArray & Hprime,
+        TArrayn::DTArray & u, TArrayn::DTArray & w, TArrayn::DTArray & temp,
+        TArrayn::Grad * gradient_op, const string * grid_type, const int Nz,
+        const double visco) {
+    // Set-up
+    blitz::Range all = blitz::Range::all();
+    S_EXP expan[3];
+    assert(gradient_op);
+
+    // du/dx
+    find_expansion(grid_type, expan, "u", "");
+    gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
+    gradient_op->get_dx(&temp,false);
+    temp = (-1)*temp;
+    // dw/dz
+    find_expansion(grid_type, expan, "w", "");
+    gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
+    gradient_op->get_dz(&temp,true);
+    // 2H'*(w_z-u_x)
+    stress_x(all,all,0) = 2*Hprime(all,all,0)*temp(all,all,Nz-1);
+
+    // dw/dx
+    find_expansion(grid_type, expan, "w", "");
+    gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
+    gradient_op->get_dx(&temp,false);
+    // du/dz
+    find_expansion(grid_type, expan, "u", "");
+    gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
+    gradient_op->get_dz(&temp,true);
+    // (1-(H')^2)*(u_z+w_x)
+    stress_x(all,all,0) += (1-pow(Hprime(all,all,0),2))*temp(all,all,Nz-1);
+    // multiply by mu/(1+(H')^2)
+    stress_x = visco/(1+pow(Hprime,2))*stress_x;
+}
+// Bottom Stress (across topography - y)
+void bottom_stress_y(TArrayn::DTArray & stress_y, TArrayn::DTArray & Hprime,
+        TArrayn::DTArray & v, TArrayn::DTArray & temp,
+        TArrayn::Grad * gradient_op, const string * grid_type, const int Nz,
+        const double visco) {
+    // Set-up
+    blitz::Range all = blitz::Range::all();
+    S_EXP expan[3];
+    assert(gradient_op);
+
+    // dv/dx
+    find_expansion(grid_type, expan, "v", "");
+    gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
+    gradient_op->get_dx(&temp,false);
+    // -v_x*H'
+    stress_y(all,all,0) = -temp(all,all,Nz-1)*Hprime(all,all,0);
+    // dv/dz
+    gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
+    gradient_op->get_dz(&temp,false);
+    // add to -v_x*H'
+    stress_y(all,all,0) = temp(all,all,Nz-1) + stress_y(all,all,0);
+    // multiply by mu/(1+(H')^2)
+    stress_y = visco/(1+pow(Hprime,2))*stress_y;
 }

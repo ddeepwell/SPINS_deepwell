@@ -3,6 +3,7 @@
 #include "NSIntegrator.hpp"
 #include "TArray.hpp"
 #include <blitz/array.h>
+#include <math.h>
 
 //using namespace TArray;
 using namespace NSIntegrator;
@@ -322,6 +323,13 @@ void BaseCase::init_vels_dump(DTArray & u, DTArray & v, DTArray & w){
     return;
 }
 
+/* Read field from regular output */
+void BaseCase::init_grid_restart(const std::string & component,
+                                 const std::string & filename, DTArray & grid){
+    if (master()) fprintf(stdout,"Reading %s from %s\n",component.c_str(),filename.c_str());
+    read_array_par(grid,filename.c_str(),size_x(),size_y(),size_z());
+    return;
+}
 
 /* Read field from regular output */
 void BaseCase::init_tracer_restart(const std::string & field, DTArray & the_tracer){
@@ -423,8 +431,8 @@ void BaseCase::successful_dump(int plot_number, double final_time, double plot_i
 }
 
 /* Write plot time information */
-void BaseCase::write_plot_times(double write_time, double avg_write_time, double plot_interval,
-        int plotnum, bool restarting, double time) {
+void BaseCase::write_plot_times(double write_time, double avg_write_time,
+        double plot_interval, int plotnum, bool restarting, double time) {
     if (master()) {
         // in log file
         fprintf(stdout,"Write time: %.6g. Average write time: %.6g.\n",
@@ -434,9 +442,106 @@ void BaseCase::write_plot_times(double write_time, double avg_write_time, double
         FILE * plottimes_file = fopen("plot_times.txt","a");
         assert(plottimes_file);
         if (plotnum == get_restart_sequence()+1 && !restarting)
-            fprintf(plottimes_file,"Output number, Simulation time (s), Write time (s), Average write time (s)\n");
+            fprintf(plottimes_file,"Output number, Simulation time (s), "
+                    "Write time (s), Average write time (s)\n");
         fprintf(plottimes_file,"%d, %.12f, %.12g, %.12g\n",
                 plotnum, time, write_time, avg_write_time);
         fclose(plottimes_file);
+    }
+}
+
+void BaseCase::stresses(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & w,
+        TArrayn::DTArray & Hprime, TArrayn::DTArray & temp, TArrayn::Grad * gradient_op,
+        const string * grid_type, const double mu, double time, int itercount, bool restarting) {
+    // set-up
+    static DTArray *tx = alloc_array(size_x(),size_y(),1);
+    static DTArray *ty = alloc_array(size_x(),size_y(),1);
+    blitz::firstIndex ii;
+    blitz::secondIndex jj;
+
+    // bottom stress ( along topography - x )
+    bottom_stress_x(*tx, Hprime, u, w, temp, gradient_op, grid_type, size_z(), mu);
+    double bot_tx_tot = pssum(sum(
+                (*get_quad_x())(ii)*pow(1+pow(Hprime,2),0.5)*
+                (*get_quad_y())(jj)*(*tx)));
+    double bot_tx_abs = pssum(sum(
+                (*get_quad_x())(ii)*pow(1+pow(Hprime,2),0.5)*
+                (*get_quad_y())(jj)*abs(*tx)));
+    // bottom stress ( across topography - y )
+    bottom_stress_y(*ty, Hprime, v, temp, gradient_op, grid_type, size_z(), mu);
+    double bot_ty_tot = pssum(sum(
+                (*get_quad_x())(ii)*pow(1+pow(Hprime,2),0.5)*
+                (*get_quad_y())(jj)*(*ty)));
+    double bot_ty_abs = pssum(sum(
+                (*get_quad_x())(ii)*pow(1+pow(Hprime,2),0.5)*
+                (*get_quad_y())(jj)*abs(*ty)));
+    double bot_ts = pssum(sum(
+                (*get_quad_x())(ii)*pow(1+pow(Hprime,2),0.5)*
+                (*get_quad_y())(jj)*pow(pow(*tx,2)+pow(*ty,2),0.5)));
+    // top stress ( along "topography" - x )
+    top_stress_x(*tx, u, temp, gradient_op, grid_type, mu);
+    double top_tx_tot = pssum(sum(
+                (*get_quad_x())(ii)*
+                (*get_quad_y())(jj)*(*tx)));
+    double top_tx_abs = pssum(sum(
+                (*get_quad_x())(ii)*
+                (*get_quad_y())(jj)*abs(*tx)));
+    // top stress ( across "topography" - y )
+    top_stress_y(*ty, v, temp, gradient_op, grid_type, mu);
+    double top_ty_tot = pssum(sum(
+                (*get_quad_x())(ii)*
+                (*get_quad_y())(jj)*(*ty)));
+    double top_ty_abs = pssum(sum(
+                (*get_quad_x())(ii)*
+                (*get_quad_y())(jj)*abs(*ty)));
+    double top_ts = pssum(sum(
+                (*get_quad_x())(ii)*
+                (*get_quad_y())(jj)*pow(pow(*tx,2)+pow(*ty,2),0.5)));
+    // add to a stress diagnostic file
+    if (master()) {
+        FILE * stresses_file = fopen("stresses.txt","a");
+        assert(stresses_file);
+        if (itercount == 1 && !restarting)
+            fprintf(stresses_file,"Time, "
+                    "Bottom_tx_tot, Bottom_tx_abs, Bottom_ty_tot, Bottom_ty_abs, Bottom_ts, "
+                    "Top_tx_tot, Top_tx_abs, Top_ty_tot, Top_ty_abs, Top_ts\n");
+        fprintf(stresses_file,"%.12f, "
+                "%.12g, %.12g, %.12g, %.12g, %.12g, "
+                "%.12g, %.12g, %.12g, %.12g, %.12g\n",
+                time,
+                bot_tx_tot, bot_tx_abs, bot_ty_tot, bot_ty_abs, bot_ts,
+                top_tx_tot, top_tx_abs, top_ty_tot, top_ty_abs, top_ts);
+        fclose(stresses_file);
+    }
+}
+
+// Enstrophy Density: 1/2*(vort_x^2 + vort_y^2 + vort_z^2)
+void BaseCase::enstrophy(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & w,
+        TArrayn::DTArray & temp, TArrayn::Grad * gradient_op, const string * grid_type,
+        double time, int itercount, bool restarting) {
+    // set-up
+    blitz::firstIndex ii;
+    blitz::secondIndex jj;
+    blitz::thirdIndex kk;
+    // compute components
+    compute_vort_x(v, w, temp, gradient_op, grid_type);
+    double enst_x_tot = pssum(sum(0.5*pow(temp,2)*
+                (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+    compute_vort_y(u, w, temp, gradient_op, grid_type);
+    double enst_y_tot = pssum(sum(0.5*pow(temp,2)*
+                (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+    compute_vort_z(u, v, temp, gradient_op, grid_type);
+    double enst_z_tot = pssum(sum(0.5*pow(temp,2)*
+                (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+    double enst_tot = enst_x_tot + enst_y_tot + enst_z_tot;
+    // add to a enstrophy diagnostic file
+    if (master()) {
+        FILE * enst_file = fopen("enstrophy.txt","a");
+        assert(enst_file);
+        if (itercount == 1 && !restarting)
+            fprintf(enst_file,"Time, enst_x, enst_y, enst_z, enst_tot\n");
+        fprintf(enst_file,"%.12f, %.12g, %.12g, %.12g, %.12g\n",
+                time, enst_x_tot, enst_y_tot,enst_z_tot, enst_tot);
+        fclose(enst_file);
     }
 }
