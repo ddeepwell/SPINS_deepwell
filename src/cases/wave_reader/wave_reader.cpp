@@ -526,7 +526,7 @@ int main(int argc, char ** argv) {
     add_option("rot_f",&rot_f,0.0,"Coriolis force term");
     add_option("rho_0",&rho_0,1.0,"Reference density");
     add_option("visco",&visco,0.0,"Kinematic viscosity");
-    add_option("kappa",&kappa_rho,0.0,"Thermal diffusivity");
+    add_option("kappa_rho",&kappa_rho,0.0,"Thermal diffusivity");
 
     option_category("Second tracer");
     add_switch("enable_tracer",&tracer,"Enable evolution of a second tracer");
