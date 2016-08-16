@@ -383,14 +383,15 @@ void BaseCase::write_chain(const char *filename, DTArray & val, int Iout, int Jo
 
 /* Check and dump */
 void BaseCase::check_and_dump(double clock_time, double real_start_time,
-        double compute_time, double sim_time, double avg_write_time, int plot_number,
+        double compute_time, double sim_time, double avg_write_time, int plot_number, int itercount,
         DTArray & u, DTArray & v, DTArray & w, vector<DTArray *> & tracer){
     int do_dump = 0;
     if (master()) {
         double total_run_time = clock_time - real_start_time;
+        double needed_time = 10*avg_write_time + 2*total_run_time/itercount;
 
         // check if close to end of compute time
-        if ((compute_time > 0) && (compute_time - total_run_time < 10*avg_write_time)){
+        if ((compute_time > 0) && (compute_time - total_run_time < needed_time)){
             do_dump = 1; // true
         }
     }

@@ -117,7 +117,7 @@ class BaseCase {
       virtual void write_chain(const char *filename, DTArray & val, int Iout, int Jout, double time);
       /* dumping functions */
       virtual void check_and_dump(double clock_time, double real_start_time,
-                double compute_time, double sim_time, double avg_write_time, int plot_number,
+                double compute_time, double sim_time, double avg_write_time, int plot_number, int itercount,
                 DTArray & u, DTArray & v, DTArray & w, vector<DTArray *> & tracer);
       virtual void successful_dump(int plot_number, double final_time, double plot_interval);
 
