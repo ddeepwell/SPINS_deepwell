@@ -64,8 +64,9 @@ int restart_sequence;
 bool restart_from_dump;
 double compute_time;
 double real_start_time;
-double total_run_time;
 double avg_write_time;
+double t_startup;
+double step_start_time;
 
 // other options
 bool write_pressure;        // Write out pressure?
@@ -104,7 +105,7 @@ class dambreak : public BaseCase {
         double next_plot;   // time of next output write
         // variables for timing steps
         double t_step;
-        double clock_time, step_start_time;
+        double clock_time;
 
         /* Size of domain */
         double length_x() const { return Lx; }
@@ -252,7 +253,7 @@ class dambreak : public BaseCase {
                 next_plot = next_plot + plot_interval;
 
                 // Find average time to write (for dump)
-                clock_time = MPI_Wtime(); // time just afer write
+                clock_time = MPI_Wtime(); // time just after write
                 avg_write_time = (avg_write_time*(plotnum-restart_sequence-1)
                         + (clock_time - t_step))/(plotnum-restart_sequence);
                 // Print information about plot outputs
@@ -262,11 +263,7 @@ class dambreak : public BaseCase {
             // update clocks
             if (master()) {
                 clock_time = MPI_Wtime();
-                if (itercount == 1) {
-                    step_start_time = MPI_Wtime(); // beginning of simulation (after reading in data)
-                } else {
-                    t_step = clock_time - step_start_time;
-                }
+                t_step = clock_time - step_start_time;
             }
 
             // Also, calculate and write out useful information
@@ -292,8 +289,6 @@ class dambreak : public BaseCase {
             double max_rho = psmax(max(abs(*tracers[RHO])));
             if (master() and itercount == 1 and !restarting) {
                 // create file for other analysis variables and write the column headers
-                double t_startup = clock_time - real_start_time;
-                fprintf(stdout,"Start-up time: %.6g s.\n",t_startup);
                 FILE * analysis_file = fopen("analysis.txt","a");
                 assert(analysis_file);
                 fprintf(analysis_file,"Iter, Clock_time, Sim_time, "
@@ -343,7 +338,7 @@ class dambreak : public BaseCase {
             }
             // see if close to end of compute time and dump
             check_and_dump(clock_time, real_start_time, compute_time, time, avg_write_time,
-                    plotnum, u, v, w, tracers);
+                    plotnum, itercount, u, v, w, tracers);
             /* Change dump log file if successfully reached final time
                the dump time will be twice final time so that a restart won't actually start */
             successful_dump(plotnum, final_time, plot_interval);
@@ -602,6 +597,9 @@ int main(int argc, char ** argv) {
     FluidEvolve<dambreak> do_stuff(&mycode);
     // Initialize
     do_stuff.initialize();
+    step_start_time = MPI_Wtime(); // beginning of simulation (after reading in data)
+    t_startup = step_start_time - real_start_time;
+    fprintf(stdout,"Start-up time: %.6g s.\n",t_startup);
     // Run until the end of time
     do_stuff.do_run(final_time);
     MPI_Finalize(); // Cleanly exit MPI
