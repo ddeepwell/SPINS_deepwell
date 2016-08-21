@@ -230,7 +230,7 @@ class mapiw : public BaseCase {
         void init_tracers(vector<DTArray *> & tracers) {
             if (master()) fprintf(stdout,"Initializing Density\n");
             DTArray & rho = *tracers[RHO];
-            assert (tracers.size() == NUM_TRACER);
+            assert(tracers.size() == NUM_TRACER);
             if (restarting and (!restart_from_dump)) {
                 init_tracer_restart("rho",rho);
             } else if (restarting and restart_from_dump) {
@@ -644,7 +644,7 @@ int main(int argc, char ** argv) {
     do_mapiw.initialize();
     step_start_time = MPI_Wtime(); // beginning of simulation (after reading in data)
     t_startup = step_start_time - real_start_time;
-    fprintf(stdout,"Start-up time: %.6g s.\n",t_startup);
+    if (master()) fprintf(stdout,"Start-up time: %.6g s.\n",t_startup);
     // Run until the end of time
     do_mapiw.do_run(final_time);
     MPI_Finalize(); // Cleanly exit MPI
