@@ -255,9 +255,10 @@ void BaseCase::automatic_grid(double MinX, double MinY, double MinZ,
 
 /* Read velocities from matlab output */
 void BaseCase::init_vels_matlab(DTArray & u, DTArray & v, DTArray & w,
-        const std::string & u_filename, const std::string & v_filename, const std::string & w_filename) {
+        const std::string & u_filename, const std::string & v_filename,
+        const std::string & w_filename) {
     init_matlab("u",u_filename,u);
-    if (v_filename != "" && (size_y() >> 1 || get_rot_f() != 0)) {
+    if ( size_y()>1 or get_rot_f()!=0 ) {
         init_matlab("v",v_filename,v);
     } else {
         v = 0;
@@ -267,9 +268,10 @@ void BaseCase::init_vels_matlab(DTArray & u, DTArray & v, DTArray & w,
 
 /* Read velocities from ctype output */
 void BaseCase::init_vels_ctype(DTArray & u, DTArray & v, DTArray & w,
-        const std::string & u_filename, const std::string & v_filename, const std::string & w_filename) {
+        const std::string & u_filename, const std::string & v_filename,
+        const std::string & w_filename) {
     init_ctype("u",u_filename,u);
-    if (v_filename != "" && (size_y() >> 1 || get_rot_f() != 0)) {
+    if ( size_y()>1 or get_rot_f()!=0 ) {
         init_ctype("v",v_filename,v);
     } else {
         v = 0;
@@ -279,53 +281,31 @@ void BaseCase::init_vels_ctype(DTArray & u, DTArray & v, DTArray & w,
 
 /* Read velocities from regular output */
 void BaseCase::init_vels_restart(DTArray & u, DTArray & v, DTArray & w) {
-    /* Restarting, so build the proper filenames and load the data into u, v, w */
-    char filename[100];
-
-    /* u */
-    snprintf(filename,100,"u.%d",get_restart_sequence());
-    if (master()) fprintf(stdout,"Reading u from %s\n",filename);
-    read_array_par(u,filename,size_x(),size_y(),size_z());
-
-    /* v, only necessary if this is an actual 3D run or if
-       rotation is noNzero */
-    if (size_y() > 1 || get_rot_f() != 0) {
-        snprintf(filename,100,"v.%d",get_restart_sequence());
-        if (master()) fprintf(stdout,"Reading v from %s\n",filename);
-        read_array_par(v,filename,size_x(),size_y(),size_z());
+    init_tracer_restart("u", u);
+    if ( size_y()>1 or get_rot_f()!=0 ) {
+        init_tracer_restart("v", v);
+    } else {
+        v = 0;
     }
-
-    /* w */
-    snprintf(filename,100,"w.%d",get_restart_sequence());
-    if (master()) fprintf(stdout,"Reading w from %s\n",filename);
-    read_array_par(w,filename,size_x(),size_y(),size_z());
-    return;
+    init_tracer_restart("w", w);
 }
 
 /* Read velocities from dump output */
 void BaseCase::init_vels_dump(DTArray & u, DTArray & v, DTArray & w){
-    /* Restarting, so build the proper filenames and load the data into u, v, w */
-
-    /* u */
     if (master()) fprintf(stdout,"Reading u from u.dump\n");
     read_array_par(u,"u.dump",size_x(),size_y(),size_z());
-
-    /* v, only necessary if this is an actual 3D run or if
-       rotation is noNzero */
-    if (size_y() > 1 || get_rot_f() != 0) {
+    if ( size_y()>1 or get_rot_f()!=0 ) {
         if (master()) fprintf(stdout,"Reading v from v.dump\n");
         read_array_par(v,"v.dump",size_x(),size_y(),size_z());
     }
-
-    /* w */
     if (master()) fprintf(stdout,"Reading w from w.dump\n");
     read_array_par(w,"w.dump",size_x(),size_y(),size_z());
     return;
 }
 
-/* Read field from regular output */
+/* Read grid from regular output */
 void BaseCase::init_grid_restart(const std::string & component,
-                                 const std::string & filename, DTArray & grid){
+        const std::string & filename, DTArray & grid){
     if (master()) fprintf(stdout,"Reading %s from %s\n",component.c_str(),filename.c_str());
     read_array_par(grid,filename.c_str(),size_x(),size_y(),size_z());
     return;
@@ -333,7 +313,6 @@ void BaseCase::init_grid_restart(const std::string & component,
 
 /* Read field from regular output */
 void BaseCase::init_tracer_restart(const std::string & field, DTArray & the_tracer){
-    /* Restarting, so build the proper filenames and load the data */
     char filename[100];
     snprintf(filename,100,"%s.%d",field.c_str(),get_restart_sequence());
     if (master()) fprintf(stdout,"Reading %s from %s\n",field.c_str(),filename);
@@ -352,18 +331,18 @@ void BaseCase::init_tracer_dump(const std::string & field, DTArray & the_tracer)
 
 /* Read field from matlab data */
 void BaseCase::init_matlab(const std::string & field,
-                           const std::string & filename, DTArray & the_field){
+        const std::string & filename, DTArray & the_field){
     if (master()) fprintf(stdout,"Reading MATLAB-format %s (%d x %d) from %s\n",
-                                  field.c_str(),size_x(),size_z(),filename.c_str());
+            field.c_str(),size_x(),size_z(),filename.c_str());
     read_2d_slice(the_field,filename.c_str(),size_x(),size_z());
     return;
 }
 
 /* Read field from CTYPE data */
 void BaseCase::init_ctype(const std::string & field,
-                           const std::string & filename, DTArray & the_field){
+        const std::string & filename, DTArray & the_field){
     if (master()) fprintf(stdout,"Reading CTYPE-format %s (%d x %d) from %s\n",
-                                  field.c_str(),size_x(),size_z(),filename.c_str());
+            field.c_str(),size_x(),size_z(),filename.c_str());
     read_2d_restart(the_field,filename.c_str(),size_x(),size_z());
     return;
 }
@@ -391,7 +370,7 @@ void BaseCase::check_and_dump(double clock_time, double real_start_time,
         double needed_time = 10*avg_write_time + 2*total_run_time/itercount;
 
         // check if close to end of compute time
-        if ((compute_time > 0) && (compute_time - total_run_time < needed_time)){
+        if (compute_time>0 and (compute_time - total_run_time < needed_time)){
             do_dump = 1; // true
         }
     }
@@ -420,7 +399,7 @@ void BaseCase::check_and_dump(double clock_time, double real_start_time,
 
 /* Change dump log file for successful completion */
 void BaseCase::successful_dump(int plot_number, double final_time, double plot_interval) {
-    if (master() && (plot_number == final_time/plot_interval)){
+    if (master() and (plot_number == final_time/plot_interval)){
         // Write the dump time to a text file for restart purposes
         FILE * dump_file; 
         dump_file = fopen("dump_time.txt","w");
@@ -442,7 +421,7 @@ void BaseCase::write_plot_times(double write_time, double avg_write_time,
         // track in specific file
         FILE * plottimes_file = fopen("plot_times.txt","a");
         assert(plottimes_file);
-        if (plotnum == get_restart_sequence()+1 && !restarting)
+        if ( plotnum==get_restart_sequence()+1 and !restarting )
             fprintf(plottimes_file,"Output number, Simulation time (s), "
                     "Write time (s), Average write time (s)\n");
         fprintf(plottimes_file,"%d, %.12f, %.12g, %.12g\n",
@@ -502,7 +481,7 @@ void BaseCase::stresses(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTA
     if (master()) {
         FILE * stresses_file = fopen("stresses.txt","a");
         assert(stresses_file);
-        if (itercount == 1 && !restarting)
+        if ( itercount==1 and !restarting )
             fprintf(stresses_file,"Time, "
                     "Bottom_tx_tot, Bottom_tx_abs, Bottom_ty_tot, Bottom_ty_abs, Bottom_ts, "
                     "Top_tx_tot, Top_tx_abs, Top_ty_tot, Top_ty_abs, Top_ts\n");
@@ -539,7 +518,7 @@ void BaseCase::enstrophy(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DT
     if (master()) {
         FILE * enst_file = fopen("enstrophy.txt","a");
         assert(enst_file);
-        if (itercount == 1 && !restarting)
+        if ( itercount==1 and !restarting )
             fprintf(enst_file,"Time, enst_x, enst_y, enst_z, enst_tot\n");
         fprintf(enst_file,"%.12f, %.12g, %.12g, %.12g, %.12g\n",
                 time, enst_x_tot, enst_y_tot,enst_z_tot, enst_tot);
