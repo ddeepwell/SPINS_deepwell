@@ -321,16 +321,6 @@ void BaseCase::init_tracer_restart(const std::string & field, DTArray & the_trac
     return;
 }
 
-/* Read field from regular output with output number specified */
-void BaseCase::init_tracer_plotnum(const std::string & field, DTArray & the_tracer,
-        const int plotnum){
-    char filename[100];
-    snprintf(filename,100,"%s.%d",field.c_str(),plotnum);
-    if (master()) fprintf(stdout,"Reading %s from %s\n",field.c_str(),filename);
-    read_array_par(the_tracer,filename,size_x(),size_y(),size_z());
-    return;
-}
-
 /* Read field from dump output */
 void BaseCase::init_tracer_dump(const std::string & field, DTArray & the_tracer){
     char filename[100];

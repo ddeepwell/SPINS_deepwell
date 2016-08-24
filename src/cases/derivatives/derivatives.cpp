@@ -32,6 +32,8 @@ const int z_ind = 2;
 // physical parameters
 double visco;                       // viscosity (m^2/s)
 double rho_0;                       // reference density (kg/m^3)
+// current output number
+int plotnum;
 
 // Derivative options
 string deriv_filenames;              // file name to take derivative of
@@ -72,6 +74,7 @@ class userControl : public BaseCase {
 
         /* Set other things */
         double get_visco() const { return visco; }
+        int get_restart_sequence() const { return plotnum; }
 
         /* Read grid (if mapped) */
         bool is_mapped() const { return mapped; }
@@ -103,7 +106,7 @@ class userControl : public BaseCase {
             split(deriv_filenames.c_str(), ' ', fields);    // populate that vector
 
             // Compute derivatives at each requested output
-            for ( int plotnum = start_sequence; plotnum <= final_sequence;
+            for ( plotnum = start_sequence; plotnum <= final_sequence;
                     plotnum = plotnum + step_sequence ) {
                 if ( deriv_x or deriv_y or deriv_z ) {
                     // loop over each field
@@ -132,15 +135,15 @@ class userControl : public BaseCase {
                         // read the field and setup for derivative 
                         if ( fields[var_num] == "v" ) {
                             saved_v = true;
-                            init_tracer_plotnum(fields[var_num],v,plotnum);
+                            init_tracer_restart(fields[var_num],v);
                             gradient_op->setup_array(&v,expan[x_ind],expan[y_ind],expan[z_ind]); }
                         else if ( fields[var_num] == "w" ) {
                             saved_w = true;
-                            init_tracer_plotnum(fields[var_num],w,plotnum);
+                            init_tracer_restart(fields[var_num],w);
                             gradient_op->setup_array(&w,expan[x_ind],expan[y_ind],expan[z_ind]); }
                         else {
                             // else use u to hold the field
-                            init_tracer_plotnum(fields[var_num],u,plotnum);
+                            init_tracer_restart(fields[var_num],u);
                             gradient_op->setup_array(&u,expan[x_ind],expan[y_ind],expan[z_ind]);
                         }
                         if (master()) {
@@ -197,11 +200,11 @@ class userControl : public BaseCase {
                 // read in fields (if not already stored in memory)
                 if ( do_vor_x or do_vor_y or do_vor_z or do_enstrophy or do_dissipation) {
                     // u
-                    init_tracer_plotnum("u",u,plotnum);
+                    init_tracer_restart("u",u);
                     // v
                     if ( !saved_v ) {
                         if ( v_exist ) {
-                            init_tracer_plotnum("v",v,plotnum); }
+                            init_tracer_restart("v",v); }
                         else {
                             if (master()) fprintf(stdout,"No v field, setting v=0\n");
                             v = 0;
@@ -209,7 +212,7 @@ class userControl : public BaseCase {
                     }
                     // w
                     if ( !saved_w ) {
-                        init_tracer_plotnum("w",w,plotnum);
+                        init_tracer_restart("w",w);
                     }
                 }
 
