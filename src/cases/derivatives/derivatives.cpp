@@ -12,7 +12,7 @@ blitz::firstIndex ii;
 blitz::secondIndex jj;
 blitz::thirdIndex kk;
 
-/* ------------------ Parameters --------------------- */
+/* ------------------ Define parameters --------------------- */
 
 // Grid scales
 double Lx, Ly, Lz;          // Grid lengths (m)
@@ -44,7 +44,7 @@ bool do_enstrophy;                  // Do Enstrophy calculation?
 bool do_dissipation;                // Do Viscous dissipation?
 bool v_exist;                       // Does the v field exist?
 
-/* ------------------ Initialize the class --------------------- */
+/* ------------------ Adjust the class --------------------- */
 
 class userControl : public BaseCase {
     public:
@@ -62,7 +62,7 @@ class userControl : public BaseCase {
         int size_y() const { return Ny; }
         int size_z() const { return Nz; }
 
-        /* Set expansion (FREE_SLIP, NO_SLIP (in vertical) or PERIODIC) */
+        /* Set expansions (FREE_SLIP, NO_SLIP (in vertical) or PERIODIC) */
         DIMTYPE type_x() const { return intype_x; }
         DIMTYPE type_y() const { return intype_y; }
         DIMTYPE type_z() const { return intype_z; }
@@ -203,7 +203,7 @@ class userControl : public BaseCase {
                         if ( v_exist ) {
                             init_tracer_plotnum("v",v,plotnum); }
                         else {
-                            if (master()) fprintf(stdout,"No v field, setting v=0.\n");
+                            if (master()) fprintf(stdout,"No v field, setting v=0\n");
                             v = 0;
                         }
                     }
@@ -261,8 +261,8 @@ class userControl : public BaseCase {
             }
         }
 
+        // Constructor: Initialize local variables
         userControl() :
-            // Initialize the local variables
             gradient_op(0),
             deriv_var(alloc_lbound(Nx,Ny,Nz),
                     alloc_extent(Nx,Ny,Nz),
@@ -285,13 +285,13 @@ int main(int argc, char ** argv) {
     options_init();
 
     option_category("Grid Options");
-    add_option("Lx",&Lx,"X-length");
-    add_option("Ly",&Ly,1.0,"Y-length");
-    add_option("Lz",&Lz,"Z-length");
+    add_option("Lx",&Lx,"Length of tank");
+    add_option("Ly",&Ly,1.0,"Width of tank");
+    add_option("Lz",&Lz,"Height of tank");
     add_option("Nx",&Nx,"Number of points in X");
     add_option("Ny",&Ny,1,"Number of points in Y");
     add_option("Nz",&Nz,"Number of points in Z");
-    add_option("min_x",&MinX,0.0,"Unmapped grids: Minimum X-value");
+    add_option("min_x",&MinX,0.0,"Minimum X-value");
     add_option("min_y",&MinY,0.0,"Minimum Y-value");
     add_option("min_z",&MinZ,0.0,"Minimum Z-value");
 
@@ -329,50 +329,24 @@ int main(int argc, char ** argv) {
     // Parse the options from the command line and config file
     options_parse(argc,argv);
 
+    /* ------------------ Adjust and check parameters --------------------- */
     /* Now, make sense of the options received.  Many of these values
-       can be directly used, but the ones of string-type need further
-       procesing. */
+       can be directly used, but the ones of string-type need further procesing. */
 
-    /* ------------------ Set boundary conditions --------------------- */
-    // x
-    if (xgrid_type == "FOURIER") { intype_x = PERIODIC; }
-    else if (xgrid_type == "FREE_SLIP") { intype_x = FREE_SLIP; }
-    else if (xgrid_type == "NO_SLIP") { intype_x = NO_SLIP; }
-    else {
-        if (master())
-            fprintf(stderr,"Invalid option %s received for type_x\n",xgrid_type.c_str());
-        MPI_Finalize(); exit(1);
-    }
-    // y
-    if (ygrid_type == "FOURIER") { intype_y = PERIODIC; }
-    else if (ygrid_type == "FREE_SLIP") { intype_y = FREE_SLIP; }
-    else {
-        if (master())
-            fprintf(stderr,"Invalid option %s received for type_y\n",ygrid_type.c_str());
-        MPI_Finalize(); exit(1);
-    }
-    // z
-    if (zgrid_type == "FOURIER") { intype_z = PERIODIC; }
-    else if (zgrid_type == "FREE_SLIP") { intype_z = FREE_SLIP; }
-    else if (zgrid_type == "NO_SLIP") { intype_z = NO_SLIP; }
-    else {
-        if (master())
-            fprintf(stderr,"Invalid option %s received for type_z\n",zgrid_type.c_str());
-        MPI_Finalize(); exit(1);
-    }
+    // parse expansion types
+    get_expansions(xgrid_type, ygrid_type, zgrid_type, intype_x, intype_y, intype_z);
+    // vector of string types
+    grid_type[x_ind] = xgrid_type;
+    grid_type[y_ind] = ygrid_type;
+    grid_type[z_ind] = zgrid_type;
 
     // adjust Ly for 2D
     if (Ny==1 and Ly!=1.0){
         Ly = 1.0;
         if (master())
-            fprintf(stdout,"Simulation is 2 dimensional, Ly has been changed to 1.0 for normalization.\n");
+            fprintf(stdout,"Simulation is 2 dimensional, "
+                    "Ly has been changed to 1.0 for normalization.\n");
     }
-
-    /* ------------------ Set the expansion types --------------------- */
-    // vector of string types
-    grid_type[x_ind] = xgrid_type;
-    grid_type[y_ind] = ygrid_type;
-    grid_type[z_ind] = zgrid_type;
 
     /* ------------------ Do stuff --------------------- */
     userControl mycode; // Create an instantiated object of the above class

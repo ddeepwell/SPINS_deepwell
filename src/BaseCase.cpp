@@ -4,6 +4,7 @@
 #include "TArray.hpp"
 #include <blitz/array.h>
 #include <math.h>
+#include <fstream>
 
 //using namespace TArray;
 using namespace NSIntegrator;
@@ -533,5 +534,109 @@ void BaseCase::enstrophy(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DT
         fprintf(enst_file,"%.12f, %.12g, %.12g, %.12g, %.12g\n",
                 time, enst_x_tot, enst_y_tot,enst_z_tot, enst_tot);
         fclose(enst_file);
+    }
+}
+
+// parse expansion types from spins.conf
+void get_expansions(const string xgrid_type, const string ygrid_type,
+        const string zgrid_type, DIMTYPE & intype_x, DIMTYPE & intype_y, DIMTYPE & intype_z) {
+    // x
+    if (xgrid_type == "FOURIER") { intype_x = PERIODIC; }
+    else if (xgrid_type == "FREE_SLIP") { intype_x = FREE_SLIP; }
+    else if (xgrid_type == "NO_SLIP") { intype_x = NO_SLIP; }
+    else {
+        if (master())
+            fprintf(stderr,"Invalid option %s received for type_x\n",xgrid_type.c_str());
+        MPI_Finalize(); exit(1);
+    }
+    // y
+    if (ygrid_type == "FOURIER") { intype_y = PERIODIC; }
+    else if (ygrid_type == "FREE_SLIP") { intype_y = FREE_SLIP; }
+    else {
+        if (master())
+            fprintf(stderr,"Invalid option %s received for type_y\n",ygrid_type.c_str());
+        MPI_Finalize(); exit(1);
+    }
+    // z
+    if (zgrid_type == "FOURIER") { intype_z = PERIODIC; }
+    else if (zgrid_type == "FREE_SLIP") { intype_z = FREE_SLIP; }
+    else if (zgrid_type == "NO_SLIP") { intype_z = NO_SLIP; }
+    else {
+        if (master())
+            fprintf(stderr,"Invalid option %s received for type_z\n",zgrid_type.c_str());
+        MPI_Finalize(); exit(1);
+    }
+}
+
+// parse file types
+void get_datatype(const string datatype, input_types & input_data_type) {
+    if (datatype=="MATLAB") { input_data_type = MATLAB; }
+    else if (datatype == "CTYPE") { input_data_type = CTYPE; }
+    else if (datatype == "FULL") { input_data_type = FULL3D; }
+    else {
+        if (master())
+            fprintf(stderr,"Invalid option %s received for file_type\n",datatype.c_str());
+        MPI_Finalize(); exit(1);
+    }
+}
+
+// adjust temporal values when restarting from dump
+void adjust_for_dump(bool & restarting, double & restart_time, int & restart_sequence,
+                        const double final_time, const double compute_time, double & avg_write_time,
+                        const int Nx, const int Ny, const int Nz) {
+    restarting = true;
+    string dump_str;
+    ifstream dump_file;
+    dump_file.open ("dump_time.txt");
+
+    getline (dump_file,dump_str); // ingnore 1st line
+
+    getline (dump_file,dump_str);
+    restart_time = atof(dump_str.c_str());
+
+    getline (dump_file,dump_str); // ingore 3rd line
+
+    getline (dump_file,dump_str);
+    restart_sequence = atoi(dump_str.c_str());
+
+    if (restart_time > final_time) {
+        // Die, ungracefully
+        if (master()){
+            fprintf(stderr,"Restart dump time, %.4g, is past final time, %.4g. "
+                    "Quitting now.\n",restart_time,final_time);
+        }
+        MPI_Finalize(); exit(1);
+    }
+    // make an estimate of the average write time
+    // this will get overwritten once a write occurs
+    if (compute_time > 0) {
+        avg_write_time = max(100.0*Nx*Ny*Nz/pow(512.0,3), 20.0);
+    }
+}
+
+// check restart sequence
+void check_restart_sequence(const bool restarting, int & restart_sequence,
+        double & initial_time, const double restart_time, const double plot_interval) {
+    if (restarting) {
+        if (restart_sequence <= 0) {
+            restart_sequence = int(restart_time/plot_interval);
+        }
+        if (master()) {
+            fprintf(stdout,"Restart flags detected\n");
+            fprintf(stdout,"Restarting from time %g, at sequence number %d\n",
+                    restart_time,restart_sequence);
+        }
+        initial_time = restart_time;
+    } else {
+        // Not restarting, so set the initial sequence number
+        // to the initial time / plot_interval
+        restart_sequence = int(initial_time/plot_interval);
+        if (fmod(initial_time,plot_interval) != 0.0) {
+            if (master()) {
+                fprintf(stdout,"Warning: the initial time (%g) does not appear "
+                        "to be an even multiple of the plot interval (%g)\n",
+                        initial_time,plot_interval);
+            }
+        }
     }
 }

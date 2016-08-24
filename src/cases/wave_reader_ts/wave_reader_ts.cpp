@@ -5,10 +5,9 @@
 /* ------------------ Top matter --------------------- */
 
 // Required headers
-#include "../BaseCase.hpp"      // Support file that contains default implementations of many functions
+#include "../BaseCase.hpp"      // contains default class
 #include "../Options.hpp"       // config-file parser
 #include <random/normal.h>      // Blitz random number generator
-#include <fstream>
 
 using ranlib::Normal;
 
@@ -17,11 +16,11 @@ blitz::firstIndex ii;
 blitz::secondIndex jj;
 blitz::thirdIndex kk;
 
-/* ------------------ Parameters --------------------- */
+/* ------------------ Define parameters --------------------- */
 
 // Grid scales
 double Lx, Ly, Lz;          // Grid lengths (m)
-int    Nx, Ny, Nz;          // Number of points in x, y (span), z
+int    Nx, Ny, Nz;          // Number of points in x, y, z
 double MinX, MinY, MinZ;    // Minimum x/y/z points
 // Mapped grid?
 bool mapped;
@@ -59,23 +58,16 @@ bool restart_from_dump;
 double compute_time;
 double real_start_time;
 double avg_write_time;
-double t_startup;
+double startup_time;
 double step_start_time;
 
 // other options
-bool write_pressure;        // Write out pressure?
 double perturb;             // Initial velocity perturbation
+bool write_pressure;        // Write out pressure?
 bool compute_stress;        // Compute surface stresses?
 bool compute_enstrophy;     // Compute Enstrophy?
 bool compute_dissipation;   // Compute dissipation?
 int itercount = 0;          // Iteration counter
-
-// Possible input data types
-static enum {
-    MATLAB,
-    CTYPE,
-    FULL3D
-} input_data_types;
 
 // Input file names
 string xgrid_filename,
@@ -88,7 +80,7 @@ string xgrid_filename,
        S_filename,
        tracer_filename;
 
-/* ------------------ Initialize the class --------------------- */
+/* ------------------ Adjust the class --------------------- */
 
 class userControl : public BaseCase {
     public:
@@ -124,8 +116,7 @@ class userControl : public BaseCase {
         DIMTYPE type_y() const { return intype_y; }
         DIMTYPE type_z() const { return intype_z; }
 
-        // Record the gradient-taking object.  This is given by the NSIntegrator
-        // code, and it reflects the boundary types and any Jacobian-transform
+        /* Record the gradient-taking object */
         void set_grad(Grad * in_grad) { gradient_op = in_grad; }
 
         /* Viscosity, diffusivity, and Coriolis frequency */
@@ -190,7 +181,7 @@ class userControl : public BaseCase {
         void init_vels(DTArray & u, DTArray & v, DTArray & w) {
             if (master()) fprintf(stdout,"Initializing velocities\n");
             // if restarting
-            if (restarting and (!restart_from_dump)) {
+            if (restarting and !restart_from_dump) {
                 init_vels_restart(u, v, w);
             } else if (restarting and restart_from_dump) {
                 init_vels_dump(u, v, w);
@@ -217,7 +208,7 @@ class userControl : public BaseCase {
                     for (int j = u.lbound(secondDim); j <= u.ubound(secondDim); j++) {
                         for (int k = u.lbound(thirdDim); k <= u.ubound(thirdDim); k++) {
                             u(i,j,k) *= 1+perturb*rnd.random();
-                            if ( Ny > 1)
+                            if ( Ny > 1 )
                                 v(i,j,k) *= 1+perturb*rnd.random();
                             w(i,j,k) *= 1+perturb*rnd.random();
                         }
@@ -233,7 +224,7 @@ class userControl : public BaseCase {
             }
         }
 
-        /* Initialze the tracers (density, and dyes) */
+        /* Initialize the tracers (density and dyes) */
         void init_tracers(vector<DTArray *> & tracers) {
             if (master()) fprintf(stdout,"Initializing tracers\n"); 
             // Sanity checks
@@ -241,19 +232,17 @@ class userControl : public BaseCase {
             assert(numtracers() >= 2);
 
             // if restarting
-            if (restarting and (!restart_from_dump)) {
+            if (restarting and !restart_from_dump) {
                 init_tracer_restart("t",*tracers[TEMP]);
                 init_tracer_restart("s",*tracers[SALT]);
                 if (tracer)
                     init_tracer_restart("tracer",*tracers[TRCR]);
-            }
-            else if (restarting and restart_from_dump) {
+            } else if (restarting and restart_from_dump) {
                 init_tracer_dump("t",*tracers[TEMP]);
                 init_tracer_dump("s",*tracers[SALT]);
                 if (tracer)
                     init_tracer_dump("tracer",*tracers[TRCR]);
-            }
-            else {
+            } else {
                 // else start from other data formats
                 switch (input_data_types) {
                     case MATLAB:
@@ -433,15 +422,14 @@ class userControl : public BaseCase {
             }
 
             // Determine last plot if restarting from the dump case
-            if (restart_from_dump and (itercount == 1)){
+            if (restart_from_dump and itercount == 1) {
                 last_plot = restart_sequence*plot_interval;    
                 next_plot = last_plot + plot_interval;
             }
             // see if close to end of compute time and dump
             check_and_dump(clock_time, real_start_time, compute_time, time, avg_write_time,
                     plotnum, itercount, u, v, w, tracers);
-            /* Change dump log file if successfully reached final time
-               the dump time will be twice final time so that a restart won't actually start */
+            // Change dump log file if successfully reached final time
             successful_dump(plotnum, final_time, plot_interval);
         }
 
@@ -461,7 +449,7 @@ class userControl : public BaseCase {
         userControl() :
             xx(split_range(Nx)), yy(Ny), zz(Nz),
             gradient_op(0),
-            plotnum(restart_sequence), 
+            plotnum(restart_sequence),
             next_plot(restart_time + plot_interval)
     {   compute_quadweights(
             size_x(),   size_y(),   size_z(),
@@ -481,10 +469,6 @@ int main(int argc, char ** argv) {
        since the inner routines assume some degree of parallelization,
        even if it is trivial. */
     MPI_Init(&argc, &argv);
-    /* Change filtering from default if you want to */
-    //f_strength = -.25;
-    //f_cutoff = 0.6;
-    //f_order = 4;
 
     real_start_time = MPI_Wtime();     // start of simulation (for dump)
     /* ------------------ Define parameters from spins.conf --------------------- */
@@ -535,7 +519,7 @@ int main(int argc, char ** argv) {
 
     option_category("Physical parameters");
     add_option("g",&g,9.81,"Gravitational acceleration");
-    add_option("rot_f",&rot_f,0.0,"Coriolis force term");
+    add_option("rot_f",&rot_f,0.0,"Coriolis frequency");
     add_option("rho_0",&rho_0,1000.0,"Reference density");
     add_option("visco",&visco,0.0,"Kinematic viscosity");
     add_option("kappa_T",&kappa_T,0.0,"Thermal diffusivity");
@@ -568,140 +552,56 @@ int main(int argc, char ** argv) {
     add_option("compute_enstrophy",&compute_enstrophy,true,"Calculate enstrophy?");
     add_option("compute_dissipation",&compute_dissipation,true,"Calculate dissipation?");
 
+    option_category("Filter options");
+    add_option("f_cutoff",&f_cutoff,0.6,"Filter cut-off frequency");
+    add_option("f_order",&f_order,2.0,"Filter order");
+    add_option("f_strength",&f_strength,20.0,"Filter strength");
+
     // Parse the options from the command line and config file
     options_parse(argc,argv);
 
+    /* ------------------ Adjust and check parameters --------------------- */
     /* Now, make sense of the options received.  Many of these values
-       can be directly used, but the ones of string-type need further
-       procesing. */
+       can be directly used, but the ones of string-type need further procesing. */
 
-    /* ------------------ Adjust for starting from a dump --------------------- */
-    // Read information from dump_time.txt
-    if (restart_from_dump){
-        restarting = true;
-        string dump_str;
-        ifstream dump_file;
-        dump_file.open ("dump_time.txt");
-
-        getline (dump_file,dump_str); // ingnore 1st line
-
-        getline (dump_file,dump_str);
-        restart_time = atof(dump_str.c_str());
-
-        getline (dump_file,dump_str); // ingore 3rd line
-
-        getline (dump_file,dump_str);
-        restart_sequence = atoi(dump_str.c_str());
-
-        // Kill simulation if already past final time
-        if (restart_time > final_time){
-            if (master()){
-                fprintf(stderr,"Restart dump time (%.4g) is past final time (%.4g). "
-                        "Quitting now.\n",restart_time,final_time);
-            }
-            MPI_Finalize(); exit(1);
-        }
-    }
-    // Estimate the time to write
-    if (compute_time > 0){
-        avg_write_time = max(100.0*Nx*Ny*Nz/pow(512.0,3), 20.0);
+    // adjust time if starting from a dump
+    if (restart_from_dump) {
+        adjust_for_dump(restarting, restart_time, restart_sequence,
+                final_time, compute_time, avg_write_time, Nx, Ny, Nz);
     }
 
-    /* ------------------ Set boundary conditions and file types --------------------- */
-    // x
-    if (xgrid_type == "FOURIER") { intype_x = PERIODIC; }
-    else if (xgrid_type == "FREE_SLIP") { intype_x = FREE_SLIP; }
-    else if (xgrid_type == "NO_SLIP") { intype_x = NO_SLIP; }
-    else {
-        if (master())
-            fprintf(stderr,"Invalid option %s received for type_x\n",xgrid_type.c_str());
-        MPI_Finalize(); exit(1);
-    }
-    // y
-    if (ygrid_type == "FOURIER") { intype_y = PERIODIC; }
-    else if (ygrid_type == "FREE_SLIP") { intype_y = FREE_SLIP; }
-    else {
-        if (master())
-            fprintf(stderr,"Invalid option %s received for type_y\n",ygrid_type.c_str());
-        MPI_Finalize(); exit(1);
-    }
-    // z
-    if (zgrid_type == "FOURIER") { intype_z = PERIODIC; }
-    else if (zgrid_type == "FREE_SLIP") { intype_z = FREE_SLIP; }
-    else if (zgrid_type == "NO_SLIP") { intype_z = NO_SLIP; }
-    else {
-        if (master())
-            fprintf(stderr,"Invalid option %s received for type_z\n",zgrid_type.c_str());
-        MPI_Finalize(); exit(1);
-    }
-    // Input filetypes
-    if (datatype=="MATLAB") { input_data_types = MATLAB; } 
-    else if (datatype == "CTYPE") { input_data_types = CTYPE; }
-    else if (datatype == "FULL") { input_data_types = FULL3D; }
-    else {
-        if (master())
-            fprintf(stderr,"Invalid option %s received for file_type\n",datatype.c_str());
-        MPI_Finalize(); exit(1);
-    }
-    // check for proper expansion types
-    if (mapped and zgrid_type != "NO_SLIP") {
-        if (master())
-            fprintf(stderr,"Z-expansion is %s, but the field is mapped. Change in spins.conf to 'NO_SLIP'.\n",
-                    zgrid_type.c_str());
-        MPI_Finalize(); exit(1);
-    }
+    // check the restart sequence
+    check_restart_sequence(restarting, restart_sequence, initial_time, restart_time, plot_interval);
 
+    // parse file types
+    get_datatype(datatype, input_data_types);
+    // parse expansion types
+    get_expansions(xgrid_type, ygrid_type, zgrid_type, intype_x, intype_y, intype_z);
     // vector of string types
     grid_type[0] = xgrid_type;
     grid_type[1] = ygrid_type;
     grid_type[2] = zgrid_type;
 
-    /* ------------------ Adjust some parameters --------------------- */
     // adjust Ly for 2D
     if (Ny==1 and Ly!=1.0){
         Ly = 1.0;
-        if (master()) {
-            fprintf(stdout,"WARNING:\n");
-            fprintf(stdout,"\tSimulation is 2 dimensional, Ly has been changed to 1.0 for normalization.\n");
-        }
+        if (master())
+            fprintf(stdout,"Simulation is 2 dimensional, "
+                    "Ly has been changed to 1.0 for normalization.\n");
     }
+
     // check for proper reference density
     if (rho_0 != 1000.0){
         rho_0 = 1000.0;
-        if (master()) {
-            fprintf(stdout,"WARNING:\n");
-            fprintf(stdout,"\tSimulation is using physical densities. rho_0 changed to 1000 kg/m^3.\n");
-        }
+        if (master())
+            fprintf(stdout,"Simulation is using physical densities. "
+                    "rho_0 changed to 1000 kg/m^3.\n");
     }
 
     /* ------------------ Derived parameters --------------------- */
 
     // Dynamic viscosity
     mu = visco*rho_0;
-
-    /* ------------------ Set correct initial time, and sequence --------------------- */
-    if (restarting) {
-        if (restart_sequence <= 0) {
-            restart_sequence = int(restart_time/plot_interval);
-        }
-        if (master()) {
-            fprintf(stdout,"Restart flags detected\n");
-            fprintf(stdout,"Restarting from time %g, at sequence number %d\n",
-                    restart_time,restart_sequence);
-        }
-        initial_time = restart_time;
-    } else {
-        // Not restarting, so set the initial sequence number
-        // to the initial time / plot_interval
-        restart_sequence = int(initial_time/plot_interval);
-        if (fmod(initial_time,plot_interval) != 0.0) {
-            if (master()) {
-                fprintf(stderr,"Warning: the initial time (%g) "
-                        "does not appear to be an even multiple of the plot interval (%g)\n",
-                        initial_time,plot_interval);
-            }
-        }
-    }
 
     /* ------------------ Print some parameters --------------------- */
     if (master()) {
@@ -710,19 +610,18 @@ int main(int argc, char ** argv) {
         fprintf(stdout,"g = %f, rot_f = %f, rho_0 = %f\n",g,rot_f,rho_0);
         fprintf(stdout,"Time between plots: %g s\n",plot_interval);
         fprintf(stdout,"Initial velocity perturbation: %g\n",perturb);
+        fprintf(stdout,"Filter cutoff = %f, order = %f, strength = %f\n",f_cutoff,f_order,f_strength);
     }
 
     /* ------------------ Do stuff --------------------- */
-    userControl mycode; // Create an instantiated object of the above class
-    // Create a flow-evolver that takes its settings from the above class
+    userControl mycode; // Create an instance of the above class
     FluidEvolve<userControl> kevin_kh(&mycode);
-    // Initialize
     kevin_kh.initialize();
     step_start_time = MPI_Wtime(); // beginning of simulation (after reading in data)
-    t_startup = step_start_time - real_start_time;
-    if (master()) fprintf(stdout,"Start-up time: %.6g s.\n",t_startup);
+    startup_time = step_start_time - real_start_time;
+    if (master()) fprintf(stdout,"Start-up time: %.6g s.\n",startup_time);
     // Run until the end of time
     kevin_kh.do_run(final_time);
-    MPI_Finalize(); // Cleanly exit MPI
-    return 0; // End the program
+    MPI_Finalize();
+    return 0;
 }

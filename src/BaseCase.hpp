@@ -8,11 +8,19 @@
 #include "NSIntegrator.hpp"
 #include "Science.hpp"
 #include <math.h>
+#include <fstream>
 
 using namespace TArrayn;
 using namespace NSIntegrator;
 using blitz::Array;
 using std::vector;
+
+// Possible input data types
+static enum input_types {
+    MATLAB,
+    CTYPE,
+    FULL3D
+} input_data_types;
 
 class BaseCase {
    /* To reduce boilerplate, wrap some of the long functions, only calling
@@ -187,6 +195,19 @@ class BaseCase {
       virtual void automatic_grid(double MinX, double MinY, double MinZ, 
               Array<double,1> *xx=0, Array<double,1> *yy=0, Array<double,1> *zz=0);
 };
+
+// parse expansion types
+void get_expansions(const string xgrid_type, const string ygrid_type,
+        const string zgrid_type, DIMTYPE & intype_x, DIMTYPE & intype_y, DIMTYPE & intype_z);
+// parse for data type
+void get_datatype(const string datatype, input_types & input_data_type);
+// adjust temporal values when restarting from dump
+void adjust_for_dump(bool & restarting, double & restart_time, int & restart_sequence,
+        const double final_time, const double compute_time, double & avg_write_time, 
+        const int Nx, const int Ny, const int Nz);
+// check restart sequence
+void check_restart_sequence(const bool restarting, int & restart_sequence,
+        double & initial_time, const double restart_time, const double plot_interval);
 
 extern template class FluidEvolve<BaseCase>;
 typedef FluidEvolve<BaseCase> EasyFlow; // Explicit template instantiation
