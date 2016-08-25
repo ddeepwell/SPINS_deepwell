@@ -186,10 +186,6 @@ void BaseCase::stationary_forcing(double t, DTArray & u_f, DTArray & v_f,
 /* Analysis */
 void BaseCase::analysis(double t, DTArray & u, DTArray & v, DTArray & w,
         vector<DTArray *> tracer, DTArray & pres) {
-    analysis(t,u,v,w,tracer);
-}
-void BaseCase::analysis(double t, DTArray & u, DTArray & v, DTArray & w,
-        vector<DTArray *> tracer) {
     /* Do velocity and tracer analysis seperately */
     vel_analysis(t, u, v, w);
     for (int i = 0; i < numtracers(); i++) {

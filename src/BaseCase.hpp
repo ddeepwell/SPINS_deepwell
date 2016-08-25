@@ -172,8 +172,6 @@ class BaseCase {
 
       virtual void analysis(double t, DTArray & u, DTArray & v, DTArray & w,
             vector<DTArray *> tracer, DTArray & pres); // General Analysis
-      virtual void analysis(double t, DTArray & u, DTArray & v, DTArray & w,
-            vector<DTArray *> tracer); // Less pressure
       virtual void vel_analysis(double t, DTArray & u, DTArray & v, 
             DTArray & w) {
          assert(0 && "vel_analysis not implemented");
