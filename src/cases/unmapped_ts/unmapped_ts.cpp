@@ -482,7 +482,7 @@ int main(int argc, char ** argv) {
     check_restart_sequence(restarting, restart_sequence, initial_time, restart_time, plot_interval);
 
     // parse expansion types
-    get_expansions(xgrid_type, ygrid_type, zgrid_type, intype_x, intype_y, intype_z);
+    get_boundary_conditions(xgrid_type, ygrid_type, zgrid_type, intype_x, intype_y, intype_z);
     // vector of string types
     grid_type[0] = xgrid_type;
     grid_type[1] = ygrid_type;

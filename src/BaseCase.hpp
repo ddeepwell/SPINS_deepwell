@@ -194,7 +194,7 @@ class BaseCase {
 };
 
 // parse expansion types
-void get_expansions(const string xgrid_type, const string ygrid_type,
+void get_boundary_conditions(const string xgrid_type, const string ygrid_type,
         const string zgrid_type, DIMTYPE & intype_x, DIMTYPE & intype_y, DIMTYPE & intype_z);
 // parse for data type
 void get_datatype(const string datatype, input_types & input_data_type);

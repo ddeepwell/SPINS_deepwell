@@ -524,7 +524,7 @@ void BaseCase::enstrophy(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DT
 }
 
 // parse expansion types from spins.conf
-void get_expansions(const string xgrid_type, const string ygrid_type,
+void get_boundary_conditions(const string xgrid_type, const string ygrid_type,
         const string zgrid_type, DIMTYPE & intype_x, DIMTYPE & intype_y, DIMTYPE & intype_z) {
     // x
     if (xgrid_type == "FOURIER") { intype_x = PERIODIC; }

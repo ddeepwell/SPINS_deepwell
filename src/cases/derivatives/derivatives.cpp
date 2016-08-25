@@ -337,7 +337,7 @@ int main(int argc, char ** argv) {
        can be directly used, but the ones of string-type need further procesing. */
 
     // parse expansion types
-    get_expansions(xgrid_type, ygrid_type, zgrid_type, intype_x, intype_y, intype_z);
+    get_boundary_conditions(xgrid_type, ygrid_type, zgrid_type, intype_x, intype_y, intype_z);
     // vector of string types
     grid_type[x_ind] = xgrid_type;
     grid_type[y_ind] = ygrid_type;
