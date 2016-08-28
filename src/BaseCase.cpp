@@ -437,7 +437,7 @@ void BaseCase::stresses(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTA
     blitz::secondIndex jj;
 
     // bottom stress ( along topography - x )
-    bottom_stress_x(*tx, Hprime, u, w, temp, gradient_op, grid_type, size_z(), mu);
+    bottom_stress_x(*tx, Hprime, u, w, temp, gradient_op, grid_type, is_mapped(), size_z(), mu);
     double bot_tx_tot = pssum(sum(
                 (*get_quad_x())(ii)*pow(1+pow(Hprime,2),0.5)*
                 (*get_quad_y())(jj)*(*tx)));
@@ -445,7 +445,7 @@ void BaseCase::stresses(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTA
                 (*get_quad_x())(ii)*pow(1+pow(Hprime,2),0.5)*
                 (*get_quad_y())(jj)*abs(*tx)));
     // bottom stress ( across topography - y )
-    bottom_stress_y(*ty, Hprime, v, temp, gradient_op, grid_type, size_z(), mu);
+    bottom_stress_y(*ty, Hprime, v, temp, gradient_op, grid_type, is_mapped(), size_z(), mu);
     double bot_ty_tot = pssum(sum(
                 (*get_quad_x())(ii)*pow(1+pow(Hprime,2),0.5)*
                 (*get_quad_y())(jj)*(*ty)));

@@ -65,10 +65,12 @@ void bottom_slope(TArrayn::DTArray & Hprime, TArrayn::DTArray & zgrid,
 // bottom stresses
 void bottom_stress_x(TArrayn::DTArray & stress_x, TArrayn::DTArray & Hprime,
         TArrayn::DTArray & u, TArrayn::DTArray & w, TArrayn::DTArray & temp,
-        TArrayn::Grad * gradient_op, const string * grid_type, const int Nz, const double visco);
+        TArrayn::Grad * gradient_op, const string * grid_type, const bool mapped,
+        const int Nz, const double visco);
 void bottom_stress_y(TArrayn::DTArray & stress_y, TArrayn::DTArray & Hprime,
         TArrayn::DTArray & v, TArrayn::DTArray & temp,
-        TArrayn::Grad * gradient_op, const string * grid_type, const int Nz, const double visco);
+        TArrayn::Grad * gradient_op, const string * grid_type, const bool mapped,
+        const int Nz, const double visco);
 // top stresses
 void top_stress_x(TArrayn::DTArray & stress_x, TArrayn::DTArray & u, TArrayn::DTArray & temp,
                 TArrayn::Grad * gradient_op, const string * grid_type, const double visco);
