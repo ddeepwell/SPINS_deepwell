@@ -255,7 +255,7 @@ class mapiw : public BaseCase {
                 vector<DTArray *> & tracers, vector<DTArray *> & tracers_f) {
             u_f = +rot_f*v;
             v_f = -rot_f*u;
-            w_f = -g*(*tracers[RHO])/rho_0;
+            w_f = -g*(*tracers[RHO]);   // tracer[RHO] = rho/rho_0
             *tracers_f[RHO] = 0;
         }
 
@@ -314,7 +314,7 @@ class mapiw : public BaseCase {
             // Energy (PE assumes density is density anomaly)
             double ke_tot = pssum(sum(0.5*rho_0*(u*u + v*v + w*w)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            double pe_tot = pssum(sum((rho_0*(1+*tracers[RHO]))*g*((*zgrid)(ii,jj,kk) - MinZ)*
+            double pe_tot = pssum(sum(rho_0*(1+*tracers[RHO])*g*((*zgrid)(ii,jj,kk) - MinZ)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             // max of fields
             double max_u = psmax(max(abs(u)));
@@ -436,7 +436,7 @@ int main(int argc, char ** argv) {
     option_category("Physical parameters");
     add_option("g",&g,9.81,"Gravitational acceleration");
     add_option("rot_f",&rot_f,0.0,"Coriolis frequency");
-    add_option("rho_0",&rho_0,1.0,"Reference density");
+    add_option("rho_0",&rho_0,1000.0,"Reference density");
     add_option("visco",&visco,0.0,"Viscosity");
     add_option("kappa_rho",&kappa_rho,0.0,"Diffusivity of density");	
 
@@ -526,9 +526,9 @@ int main(int argc, char ** argv) {
     // Dynamic viscosity
     mu = visco*rho_0;
     // Mode-2 wave speed
-    c0 = 0.5*sqrt(g*h_halfwidth*delta_rho/rho_0);
+    c0 = 0.5*sqrt(g*h_halfwidth*delta_rho);     // delta_rho is already scaled by rho_0
     // Maximum buoyancy frequency (squared) if the initial stratification was stable
-    N2_max = g/rho_0*delta_rho/(2*h_halfwidth);
+    N2_max = g*delta_rho/(2*h_halfwidth);       // delta_rho is already scaled by rho_0
     // Reynolds number
     Re = c0*h_halfwidth/visco;
     // Maximum time step
@@ -542,7 +542,7 @@ int main(int argc, char ** argv) {
         fprintf(stdout,"Time between plots: %g s\n",plot_interval);
         fprintf(stdout,"Initial velocity perturbation: %g\n",perturb);
         fprintf(stdout,"Filter cutoff = %f, order = %f, strength = %f\n",f_cutoff,f_order,f_strength);
-        fprintf(stdout,"Density difference: delta_rho = %g\n",delta_rho);
+        fprintf(stdout,"Density difference: delta_rho/rho_0 = %g\n",delta_rho);
         fprintf(stdout,"Pycnocline half-width: h = %g\n",h_halfwidth);
         fprintf(stdout,"Pycnocline vertical shift %%: zeta = %g\n",pyc_asym);
         fprintf(stdout,"Pycnocline separation: zeta_p = %g\n",pyc_sep);

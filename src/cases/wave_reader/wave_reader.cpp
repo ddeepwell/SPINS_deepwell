@@ -265,7 +265,7 @@ class userControl : public BaseCase {
                 vector<DTArray *> & tracers, vector<DTArray *> & tracers_f) {
             u_f = +rot_f*v;
             v_f = -rot_f*u;
-            w_f = -g*(*tracers[RHO])/rho_0;
+            w_f = -g*(*tracers[RHO]);   // tracer[RHO] = rho/rho_0
             *tracers_f[RHO] = 0;
             if (tracer) {
                 *tracers_f[TRCR] = 0;
@@ -336,10 +336,10 @@ class userControl : public BaseCase {
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             double pe_tot;
             if (mapped) {
-                pe_tot = pssum(sum((rho_0*(1+*tracers[RHO]))*g*((*zgrid)(ii,jj,kk) - MinZ)*
+                pe_tot = pssum(sum(rho_0(1+*tracers[RHO])*g*((*zgrid)(ii,jj,kk) - MinZ)*
                             (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             } else {
-                pe_tot = pssum(sum((rho_0*(1+*tracers[RHO]))*g*(zz(kk) - MinZ)*
+                pe_tot = pssum(sum(rho_0(1+*tracers[RHO])*g*(zz(kk) - MinZ)*
                             (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             }
             // max of fields
@@ -503,7 +503,7 @@ int main(int argc, char ** argv) {
     option_category("Physical parameters");
     add_option("g",&g,9.81,"Gravitational acceleration");
     add_option("rot_f",&rot_f,0.0,"Coriolis frequency");
-    add_option("rho_0",&rho_0,1.0,"Reference density");
+    add_option("rho_0",&rho_0,1000.0,"Reference density");
     add_option("visco",&visco,0.0,"Kinematic viscosity");
     add_option("kappa_rho",&kappa_rho,0.0,"Diffusivity of density");
 

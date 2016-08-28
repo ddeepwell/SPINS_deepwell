@@ -455,7 +455,7 @@ int main(int argc, char ** argv) {
     option_category("Physical parameters");
     add_option("g",&g,9.81,"Gravitational acceleration");
     add_option("rot_f",&rot_f,0.0,"Coriolis frequency");
-    add_option("rho_0",&rho_0,1.0,"Reference density");
+    add_option("rho_0",&rho_0,1000.0,"Reference density");
     add_option("visco",&visco,0.0,"Viscosity");
     add_option("kappa_T",&kappa_T,0.0,"Diffusivity of temperature");	
     add_option("kappa_S",&kappa_S,0.0,"Diffusivity of salt");	

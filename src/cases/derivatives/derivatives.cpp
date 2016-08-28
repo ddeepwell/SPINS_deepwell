@@ -312,7 +312,7 @@ int main(int argc, char ** argv) {
 
     option_category("Physical parameters");
     add_option("visco",&visco,0.0,"Viscosity");
-    add_option("rho_0",&rho_0,1.0,"Reference Density");
+    add_option("rho_0",&rho_0,1000.0,"Reference Density");
 
     option_category("Derivative options");
     add_option("deriv_files",&deriv_filenames,"Derivative filename");
