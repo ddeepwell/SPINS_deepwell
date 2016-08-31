@@ -162,7 +162,7 @@ void compute_vort_x(TArrayn::DTArray & v, TArrayn::DTArray & w, TArrayn::DTArray
     assert(gradient_op);
 
     // Setup for dv/dz
-    find_expansion(grid_type, expan, "v", "");
+    find_expansion(grid_type, expan, "v");
     gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
     // get dv/dz
     gradient_op->get_dz(&vortx,false);
@@ -170,7 +170,7 @@ void compute_vort_x(TArrayn::DTArray & v, TArrayn::DTArray & w, TArrayn::DTArray
     vortx = (-1)*vortx;
 
     // Setup for dw/dy
-    find_expansion(grid_type, expan, "w", "");
+    find_expansion(grid_type, expan, "w");
     gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
     // get dw/dy, and add to vortx
     gradient_op->get_dy(&vortx,true);
@@ -184,7 +184,7 @@ void compute_vort_y(TArrayn::DTArray & u, TArrayn::DTArray & w, TArrayn::DTArray
     assert(gradient_op);
 
     // Setup for dw/dx
-    find_expansion(grid_type, expan, "w", "");
+    find_expansion(grid_type, expan, "w");
     gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
     // get dw/dx
     gradient_op->get_dx(&vorty,false);
@@ -192,7 +192,7 @@ void compute_vort_y(TArrayn::DTArray & u, TArrayn::DTArray & w, TArrayn::DTArray
     vorty = (-1)*vorty;
 
     // Setup for du/dz
-    find_expansion(grid_type, expan, "u", "");
+    find_expansion(grid_type, expan, "u");
     gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
     // get du/dz
     gradient_op->get_dz(&vorty,true);
@@ -206,7 +206,7 @@ void compute_vort_z(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray
     assert(gradient_op);
 
     // Setup for du/dy
-    find_expansion(grid_type, expan, "u", "");
+    find_expansion(grid_type, expan, "u");
     gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
     // get du/dy
     gradient_op->get_dy(&vortz,false);
@@ -214,7 +214,7 @@ void compute_vort_z(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray
     vortz = (-1)*vortz;
 
     // Setup for dv/dx
-    find_expansion(grid_type, expan, "v", "");
+    find_expansion(grid_type, expan, "v");
     gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
     // get du/dz
     gradient_op->get_dx(&vortz,true);
@@ -257,47 +257,47 @@ void dissipation(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & 
     assert(gradient_op);
 
     // 1st term: e_11^2 = (du/dx)^2
-    find_expansion(grid_type, expan, "u", "");
+    find_expansion(grid_type, expan, "u");
     gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
     gradient_op->get_dx(temp,false);
     diss = pow(*temp,2);
     // 2nd term: e_22^2 = (dv/dy)^2
-    find_expansion(grid_type, expan, "v", "");
+    find_expansion(grid_type, expan, "v");
     gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
     gradient_op->get_dy(temp,false);
     diss += pow(*temp,2);
     // 3rd term: e_33^2 = (dw/dz)^2
-    find_expansion(grid_type, expan, "w", "");
+    find_expansion(grid_type, expan, "w");
     gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
     gradient_op->get_dz(temp,false);
     diss += pow(*temp,2);
     // 4th term: 2e_12^2 = 2*(1/2*(u_y + v_x))^2
     // u_y
-    find_expansion(grid_type, expan, "u", "");
+    find_expansion(grid_type, expan, "u");
     gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
     gradient_op->get_dy(temp,false);
     // v_x
-    find_expansion(grid_type, expan, "v", "");
+    find_expansion(grid_type, expan, "v");
     gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
     gradient_op->get_dx(temp,true);
     diss += 2.0*pow(0.5*(*temp),2);
     // 5th term: 2e_13^2 = 2*(1/2*(u_z + w_x))^2
     // u_z
-    find_expansion(grid_type, expan, "u", "");
+    find_expansion(grid_type, expan, "u");
     gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
     gradient_op->get_dz(temp,false);
     // w_x
-    find_expansion(grid_type, expan, "w", "");
+    find_expansion(grid_type, expan, "w");
     gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
     gradient_op->get_dx(temp,true);
     diss += 2.0*pow(0.5*(*temp),2);
     // 6th term: 2e_23^2 = 2*(1/2*(v_z + w_y))^2
     // v_z
-    find_expansion(grid_type, expan, "v", "");
+    find_expansion(grid_type, expan, "v");
     gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
     gradient_op->get_dz(temp,false);
     // w_y
-    find_expansion(grid_type, expan, "w", "");
+    find_expansion(grid_type, expan, "w");
     gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
     gradient_op->get_dy(temp,true);
     diss += 2.0*pow(0.5*(*temp),2);
@@ -395,11 +395,23 @@ const blitz::Array<double,1> * get_quad_z() {
 }
 
 // function to parse the expansion types
-void find_expansion(const string * grid_type, S_EXP * expan,
-        string deriv_filename, string base_field) {
+void find_expansion(const string * grid_type, S_EXP * expan, string deriv_filename) {
     const int x_ind = 0;
     const int y_ind = 1;
     const int z_ind = 2;
+    string prev_deriv, base_field;
+
+    // check if field is a derivative field
+    bool input_deriv = false;        // assume it's not a derivative
+    int var_len = deriv_filename.length();
+    if ( var_len > 2 ) {
+        if ( deriv_filename.substr(var_len-2,1) == "_" ) {
+            // if second last char is an underscore then its a derivative field
+            input_deriv = true;
+            prev_deriv = deriv_filename.substr(var_len-1,1);  // the completed derivative
+            base_field = deriv_filename.substr(0,var_len-2);  // the differentiated field
+        }
+    }
 
     for ( int nn = 0; nn <= 2; nn++ ) {
         if      (grid_type[nn] == "FOURIER") { expan[nn] = FOURIER; }
@@ -427,6 +439,13 @@ void find_expansion(const string * grid_type, S_EXP * expan,
                 else if ( nn == z_ind ) { expan[nn] = COSINE; }
             }
         }   
+    }
+
+    // adjust if input field is a derivative field
+    if ( input_deriv == true ) {
+        if      ( prev_deriv == "x" ) { expan[x_ind] = swap_trig(expan[x_ind]); }
+        else if ( prev_deriv == "y" ) { expan[y_ind] = swap_trig(expan[y_ind]); }
+        else if ( prev_deriv == "z" ) { expan[z_ind] = swap_trig(expan[z_ind]); }
     }
 }
 // function to switch trig functions
@@ -463,7 +482,7 @@ void bottom_slope(TArrayn::DTArray & Hprime, TArrayn::DTArray & zgrid,
     xx = zgrid(all,0,Nz-1);
     // put into temp array, and take derivative
     temp = xx(ii) + 0*jj + 0*kk;
-    find_expansion(grid_type, expan, "zgrid", "");
+    find_expansion(grid_type, expan, "zgrid");
     gradient_op->setup_array(&temp,expan[0],expan[1],expan[2]);
     gradient_op->get_dx(&z_x);
     // flatten to get 2D array
@@ -481,7 +500,7 @@ void top_stress_x(TArrayn::DTArray & stress_x, TArrayn::DTArray & u,
     assert(gradient_op);
 
     // du/dz
-    find_expansion(grid_type, expan, "u", "");
+    find_expansion(grid_type, expan, "u");
     gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
     gradient_op->get_dz(&temp,false);
     // top stress
@@ -497,7 +516,7 @@ void top_stress_y(TArrayn::DTArray & stress_y, TArrayn::DTArray & v,
     assert(gradient_op);
 
     // dv/dz
-    find_expansion(grid_type, expan, "v", "");
+    find_expansion(grid_type, expan, "v");
     gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
     gradient_op->get_dz(&temp,false);
     // top stress
@@ -515,23 +534,23 @@ void bottom_stress_x(TArrayn::DTArray & stress_x, TArrayn::DTArray & Hprime,
 
     if (mapped) {
         // du/dx
-        find_expansion(grid_type, expan, "u", "");
+        find_expansion(grid_type, expan, "u");
         gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
         gradient_op->get_dx(&temp,false);
         temp = (-1)*temp;
         // dw/dz
-        find_expansion(grid_type, expan, "w", "");
+        find_expansion(grid_type, expan, "w");
         gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
         gradient_op->get_dz(&temp,true);
         // 2H'*(w_z-u_x)
         stress_x(all,all,0) = 2*Hprime(all,all,0)*temp(all,all,Nz-1);
 
         // dw/dx
-        find_expansion(grid_type, expan, "w", "");
+        find_expansion(grid_type, expan, "w");
         gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
         gradient_op->get_dx(&temp,false);
         // du/dz
-        find_expansion(grid_type, expan, "u", "");
+        find_expansion(grid_type, expan, "u");
         gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
         gradient_op->get_dz(&temp,true);
         // (1-(H')^2)*(u_z+w_x)
@@ -540,7 +559,7 @@ void bottom_stress_x(TArrayn::DTArray & stress_x, TArrayn::DTArray & Hprime,
         stress_x = visco/(1+pow(Hprime,2))*stress_x;
     } else {
         // du/dz
-        find_expansion(grid_type, expan, "u", "");
+        find_expansion(grid_type, expan, "u");
         gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
         gradient_op->get_dz(&temp,false);
         // top stress
@@ -559,7 +578,7 @@ void bottom_stress_y(TArrayn::DTArray & stress_y, TArrayn::DTArray & Hprime,
 
     if (mapped) {
         // dv/dx
-        find_expansion(grid_type, expan, "v", "");
+        find_expansion(grid_type, expan, "v");
         gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
         gradient_op->get_dx(&temp,false);
         // -v_x*H'
@@ -573,7 +592,7 @@ void bottom_stress_y(TArrayn::DTArray & stress_y, TArrayn::DTArray & Hprime,
         stress_y = visco/(1+pow(Hprime,2))*stress_y;
     } else {
         // dv/dz
-        find_expansion(grid_type, expan, "v", "");
+        find_expansion(grid_type, expan, "v");
         gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
         gradient_op->get_dz(&temp,false);
         // top stress

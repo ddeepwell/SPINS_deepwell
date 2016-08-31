@@ -53,8 +53,7 @@ const blitz::Array<double,1> * get_quad_y();
 const blitz::Array<double,1> * get_quad_z();
 
 // find which expansion to use based on field and boundary conditions
-void find_expansion(const string * grid_type, Transformer::S_EXP * expan,
-        string deriv_filename, string base_field);
+void find_expansion(const string * grid_type, Transformer::S_EXP * expan, string deriv_filename);
 // switch trig function
 Transformer::S_EXP swap_trig( Transformer::S_EXP the_exp );
 

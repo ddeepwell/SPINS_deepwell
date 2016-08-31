@@ -101,7 +101,7 @@ class userControl : public BaseCase {
             char filename[100];
             bool saved_v = false;
             bool saved_w = false;
-            string prev_deriv, base_field;
+            //string prev_deriv, base_field;
             vector<string> fields;      // vector of fields to take derivatives
             split(deriv_filenames.c_str(), ' ', fields);    // populate that vector
 
@@ -116,21 +116,13 @@ class userControl : public BaseCase {
                         int var_len = fields[var_num].length();
                         if ( var_len > 2 ) {
                             if ( fields[var_num].substr(var_len-2,1) == "_" ) {
-                                // if second last char is an underscore then its a derivative field
+                        //        // if second last char is an underscore then its a derivative field
                                 input_deriv = true;
-                                prev_deriv = fields[var_num].substr(var_len-1,1);  // the completed derivative
-                                base_field = fields[var_num].substr(0,var_len-2);  // the differentiated field
                             }
                         }
 
                         // parse for expansion type
-                        find_expansion(grid_type, expan, fields[var_num], base_field);
-                        // adjust for a second derivative
-                        if ( input_deriv == true ) {
-                            if      ( prev_deriv == "x" ) { expan[x_ind] = swap_trig(expan[x_ind]); }
-                            else if ( prev_deriv == "y" ) { expan[y_ind] = swap_trig(expan[y_ind]); }
-                            else if ( prev_deriv == "z" ) { expan[z_ind] = swap_trig(expan[z_ind]); }
-                        }
+                        find_expansion(grid_type, expan, fields[var_num]);
 
                         // read the field and setup for derivative 
                         if ( fields[var_num] == "v" ) {

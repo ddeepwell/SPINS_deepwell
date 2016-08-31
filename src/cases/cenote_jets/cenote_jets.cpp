@@ -291,7 +291,7 @@ class dambreak : public BaseCase {
                     write_array(*tracers[TRCR],"tracer",plotnum);
                 if (write_du) {
                     // u derivatives
-                    find_expansion(grid_type, expan, "u", "");
+                    find_expansion(grid_type, expan, "u");
                     gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"u_x",plotnum);
@@ -302,7 +302,7 @@ class dambreak : public BaseCase {
                 }
                 if ( (Ny > 1 or rot_f != 0) and write_dv == true) {
                     // v derivatives
-                    find_expansion(grid_type, expan, "v", "");
+                    find_expansion(grid_type, expan, "v");
                     gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"v_x",plotnum);
@@ -313,7 +313,7 @@ class dambreak : public BaseCase {
                 }
                 if (write_dw) {
                     // w derivatives
-                    find_expansion(grid_type, expan, "w", "");
+                    find_expansion(grid_type, expan, "w");
                     gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"w_x",plotnum);
@@ -324,7 +324,7 @@ class dambreak : public BaseCase {
                 }
                 if (write_drho) {
                     // Density derivatives
-                    find_expansion(grid_type, expan, "rho", "");
+                    find_expansion(grid_type, expan, "rho");
                     gradient_op->setup_array(tracers[RHO],expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"rho_x",plotnum);
@@ -335,7 +335,7 @@ class dambreak : public BaseCase {
                 }
                 if (write_dtracer) {
                     // tracer derivatives
-                    find_expansion(grid_type, expan, "tracer", "");
+                    find_expansion(grid_type, expan, "tracer");
                     gradient_op->setup_array(tracers[TRCR],expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"tracer_x",plotnum);
@@ -349,22 +349,20 @@ class dambreak : public BaseCase {
                     DTArray *ux = alloc_array(Nx,Ny,Nz);
                     DTArray *uy = alloc_array(Nx,Ny,Nz);
                     DTArray *uz = alloc_array(Nx,Ny,Nz);
-                    find_expansion(grid_type, expan, "u", "");
+                    find_expansion(grid_type, expan, "u");
                     gradient_op->setup_array(&u,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(ux,false);
                     gradient_op->get_dy(uy,false);
                     gradient_op->get_dz(uz,false);
-                    expan[0] = swap_trig(expan[0]);
+                    find_expansion(grid_type, expan, "u_x");
                     gradient_op->setup_array(ux,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"u_xx",plotnum);
-                    expan[0] = swap_trig(expan[0]);
-                    expan[1] = swap_trig(expan[1]);
+                    find_expansion(grid_type, expan, "u_y");
                     gradient_op->setup_array(uy,expan[0],expan[1],expan[2]);
                     gradient_op->get_dy(temp1,false);
                     write_array(*temp1,"u_yy",plotnum);
-                    expan[1] = swap_trig(expan[1]);
-                    expan[2] = swap_trig(expan[2]);
+                    find_expansion(grid_type, expan, "u_z");
                     gradient_op->setup_array(uz,expan[0],expan[1],expan[2]);
                     gradient_op->get_dz(temp1,false);
                     write_array(*temp1,"u_zz",plotnum);
@@ -375,22 +373,20 @@ class dambreak : public BaseCase {
                     DTArray *vx = alloc_array(Nx,Ny,Nz);
                     DTArray *vy = alloc_array(Nx,Ny,Nz);
                     DTArray *vz = alloc_array(Nx,Ny,Nz);
-                    find_expansion(grid_type, expan, "v", "");
+                    find_expansion(grid_type, expan, "v");
                     gradient_op->setup_array(&v,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(vx,false);
                     gradient_op->get_dy(vy,false);
                     gradient_op->get_dz(vz,false);
-                    expan[0] = swap_trig(expan[0]);
+                    find_expansion(grid_type, expan, "v_x");
                     gradient_op->setup_array(vx,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"v_xx",plotnum);
-                    expan[0] = swap_trig(expan[0]);
-                    expan[1] = swap_trig(expan[1]);
+                    find_expansion(grid_type, expan, "v_y");
                     gradient_op->setup_array(vy,expan[0],expan[1],expan[2]);
                     gradient_op->get_dy(temp1,false);
                     write_array(*temp1,"v_yy",plotnum);
-                    expan[1] = swap_trig(expan[1]);
-                    expan[2] = swap_trig(expan[2]);
+                    find_expansion(grid_type, expan, "v_z");
                     gradient_op->setup_array(vz,expan[0],expan[1],expan[2]);
                     gradient_op->get_dz(temp1,false);
                     write_array(*temp1,"v_zz",plotnum);
@@ -401,22 +397,20 @@ class dambreak : public BaseCase {
                     DTArray *wx = alloc_array(Nx,Ny,Nz);
                     DTArray *wy = alloc_array(Nx,Ny,Nz);
                     DTArray *wz = alloc_array(Nx,Ny,Nz);
-                    find_expansion(grid_type, expan, "w", "");
+                    find_expansion(grid_type, expan, "w");
                     gradient_op->setup_array(&w,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(wx,false);
                     gradient_op->get_dy(wy,false);
                     gradient_op->get_dz(wz,false);
-                    expan[0] = swap_trig(expan[0]);
+                    find_expansion(grid_type, expan, "w_x");
                     gradient_op->setup_array(wx,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"w_xx",plotnum);
-                    expan[0] = swap_trig(expan[0]);
-                    expan[1] = swap_trig(expan[1]);
+                    find_expansion(grid_type, expan, "w_y");
                     gradient_op->setup_array(wy,expan[0],expan[1],expan[2]);
                     gradient_op->get_dy(temp1,false);
                     write_array(*temp1,"w_yy",plotnum);
-                    expan[1] = swap_trig(expan[1]);
-                    expan[2] = swap_trig(expan[2]);
+                    find_expansion(grid_type, expan, "w_z");
                     gradient_op->setup_array(wz,expan[0],expan[1],expan[2]);
                     gradient_op->get_dz(temp1,false);
                     write_array(*temp1,"w_zz",plotnum);
@@ -427,22 +421,20 @@ class dambreak : public BaseCase {
                     DTArray *rhox = alloc_array(Nx,Ny,Nz);
                     DTArray *rhoy = alloc_array(Nx,Ny,Nz);
                     DTArray *rhoz = alloc_array(Nx,Ny,Nz);
-                    find_expansion(grid_type, expan, "rho", "");
+                    find_expansion(grid_type, expan, "rho");
                     gradient_op->setup_array(tracers[RHO],expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(rhox,false);
                     gradient_op->get_dy(rhoy,false);
                     gradient_op->get_dz(rhoz,false);
-                    expan[0] = swap_trig(expan[0]);
+                    find_expansion(grid_type, expan, "rho_x");
                     gradient_op->setup_array(rhox,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"rho_xx",plotnum);
-                    expan[0] = swap_trig(expan[0]);
-                    expan[1] = swap_trig(expan[1]);
+                    find_expansion(grid_type, expan, "rho_y");
                     gradient_op->setup_array(rhoy,expan[0],expan[1],expan[2]);
                     gradient_op->get_dy(temp1,false);
                     write_array(*temp1,"rho_yy",plotnum);
-                    expan[1] = swap_trig(expan[1]);
-                    expan[2] = swap_trig(expan[2]);
+                    find_expansion(grid_type, expan, "rho_z");
                     gradient_op->setup_array(rhoz,expan[0],expan[1],expan[2]);
                     gradient_op->get_dz(temp1,false);
                     write_array(*temp1,"rho_zz",plotnum);
@@ -453,22 +445,20 @@ class dambreak : public BaseCase {
                     DTArray *tracerx = alloc_array(Nx,Ny,Nz);
                     DTArray *tracery = alloc_array(Nx,Ny,Nz);
                     DTArray *tracerz = alloc_array(Nx,Ny,Nz);
-                    find_expansion(grid_type, expan, "tracer", "");
+                    find_expansion(grid_type, expan, "tracer");
                     gradient_op->setup_array(tracers[TRCR],expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(tracerx,false);
                     gradient_op->get_dy(tracery,false);
                     gradient_op->get_dz(tracerz,false);
-                    expan[0] = swap_trig(expan[0]);
+                    find_expansion(grid_type, expan, "tracer_x");
                     gradient_op->setup_array(tracerx,expan[0],expan[1],expan[2]);
                     gradient_op->get_dx(temp1,false);
                     write_array(*temp1,"tracer_xx",plotnum);
-                    expan[0] = swap_trig(expan[0]);
-                    expan[1] = swap_trig(expan[1]);
+                    find_expansion(grid_type, expan, "tracer_y");
                     gradient_op->setup_array(tracery,expan[0],expan[1],expan[2]);
                     gradient_op->get_dy(temp1,false);
                     write_array(*temp1,"tracer_yy",plotnum);
-                    expan[1] = swap_trig(expan[1]);
-                    expan[2] = swap_trig(expan[2]);
+                    find_expansion(grid_type, expan, "tracer_z");
                     gradient_op->setup_array(tracerz,expan[0],expan[1],expan[2]);
                     gradient_op->get_dz(temp1,false);
                     write_array(*temp1,"tracer_zz",plotnum);
