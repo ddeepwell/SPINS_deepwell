@@ -255,11 +255,7 @@ void BaseCase::init_vels_matlab(DTArray & u, DTArray & v, DTArray & w,
         const std::string & u_filename, const std::string & v_filename,
         const std::string & w_filename) {
     init_matlab("u",u_filename,u);
-    if ( size_y()>1 or get_rot_f()!=0 ) {
-        init_matlab("v",v_filename,v);
-    } else {
-        v = 0;
-    }
+    v = 0; // matlab type is for reading from 2D data
     init_matlab("w",w_filename,w);
 }
 
@@ -268,11 +264,7 @@ void BaseCase::init_vels_ctype(DTArray & u, DTArray & v, DTArray & w,
         const std::string & u_filename, const std::string & v_filename,
         const std::string & w_filename) {
     init_ctype("u",u_filename,u);
-    if ( size_y()>1 or get_rot_f()!=0 ) {
-        init_ctype("v",v_filename,v);
-    } else {
-        v = 0;
-    }
+    v = 0; // matlab type is for reading from 2D data
     init_ctype("w",w_filename,w);
 }
 
@@ -412,9 +404,8 @@ void BaseCase::write_plot_times(double write_time, double avg_write_time,
         double plot_interval, int plotnum, bool restarting, double time) {
     if (master()) {
         // in log file
-        fprintf(stdout,"Write time: %.6g. Average write time: %.6g.\n",
+        fprintf(stdout,"*Write time: %.6g. Average write time: %.6g.\n",
                 write_time, avg_write_time);
-        fprintf(stdout,"*");
         // track in specific file
         FILE * plottimes_file = fopen("plot_times.txt","a");
         assert(plottimes_file);

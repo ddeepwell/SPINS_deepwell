@@ -98,6 +98,10 @@ class userControl : public BaseCase {
         double t_step;
         double clock_time;
 
+        /* Variables for Diagnostics */
+        double max_u, max_v, max_w, max_rho, max_dye;
+        double max_ke, ke_tot, pe_tot, diss_tot;
+
         /* Size of domain */
         double length_x() const { return Lx; }
         double length_y() const { return Ly; }
@@ -183,7 +187,7 @@ class userControl : public BaseCase {
             } else {
                 // else start from other data formats
                 switch(input_data_types) {
-                    case MATLAB: // MATLAB data
+                    case MATLAB: // 2D MATLAB data
                         init_vels_matlab(u, v, w, u_filename, v_filename, w_filename);
                         break;
                     case CTYPE: // Column-major 2D data
@@ -273,6 +277,56 @@ class userControl : public BaseCase {
             }
         }
 
+        void initialize_diagnostics_file() {
+            if (master() and !restarting) {
+                // create file for other diagnostics and write the column headers
+                FILE * diagnos_file = fopen("diagnostics.txt","a");
+                assert(diagnos_file);
+                fprintf(diagnos_file,"Iter, Clock_time, Sim_time, "
+                        "Max_U, Max_V, Max_W, "
+                        "Max_KE, Total_KE, Total_PE, Total_dissipation, "
+                        "Max_density");
+                if (tracer)
+                    fprintf(diagnos_file,", Max_tracer");
+                fprintf(diagnos_file,"\n");
+                fclose(diagnos_file);
+            }
+        }
+
+        void write_diagnostics(double time) {
+            if (master()) {
+                /* add to the diagnostics file at each time step */
+                FILE * diagnos_file = fopen("diagnostics.txt","a");
+                assert(diagnos_file);
+                fprintf(diagnos_file,"%d, %.12g, %.12f, "
+                        "%.12g, %.12g, %.12g, "
+                        "%.12g, %.12g, %.12g, %.12g, "
+                        "%.12g",
+                        itercount,t_step,time,
+                        max_u,max_v,max_w,
+                        max_ke,ke_tot,pe_tot,diss_tot,
+                        max_rho);
+                if (tracer) {
+                    fprintf(diagnos_file,", %.12g",max_dye);
+                }
+                fprintf(diagnos_file,"\n");
+                fclose(diagnos_file);
+                /* and to the log file */
+                fprintf(stdout,"[%d] (%.4g) %.4f: "
+                        "%.4g %.4g %.4g "
+                        "%.4g %.4g %.4g %.4g "
+                        "%.4g",
+                        itercount,t_step,time,
+                        max_u,max_v,max_w,
+                        max_ke,ke_tot,pe_tot,diss_tot,
+                        max_rho);
+                if (tracer) {
+                    fprintf(stdout," %.4g",max_dye);
+                }
+                fprintf(stdout,"\n");
+            }
+        }
+
         /* Basic analysis, to write out the field periodically */
         void analysis(double time, DTArray & u, DTArray & v, DTArray & w,
                 vector<DTArray *> tracers, DTArray & pressure) {
@@ -289,7 +343,68 @@ class userControl : public BaseCase {
                         *Hprime = 0;
                     }   
                 }
+                // initialize the diagnostic file
+                initialize_diagnostics_file();
             }
+            // update clocks
+            if (master()) {
+                clock_time = MPI_Wtime();
+                t_step = clock_time - step_start_time;
+            }
+
+            /* Calculate and write out useful information */
+
+            // total dissipation
+            diss_tot = 0;
+            if (compute_dissipation) {
+                dissipation(u, v, w, *temp1, gradient_op, grid_type, Nx, Ny, Nz, mu);
+                diss_tot = pssum(sum((*temp1)*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            }
+            // Energy (PE assumes density is density anomaly)
+            ke_tot = pssum(sum(0.5*rho_0*(u*u + v*v + w*w)*
+                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            pe_tot;
+            if (mapped) {
+                pe_tot = pssum(sum(rho_0*(1+*tracers[RHO])*g*((*zgrid)(ii,jj,kk) - MinZ)*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            } else {
+                pe_tot = pssum(sum(rho_0*(1+*tracers[RHO])*g*(zz(kk) - MinZ)*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            }
+            // max of fields
+            max_u = psmax(max(abs(u)));
+            max_v = psmax(max(abs(v)));
+            max_w = psmax(max(abs(w)));
+            max_ke = psmax(max(0.5*rho_0*(u*u + v*v + w*w)*
+                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            max_rho = psmax(max(abs(*tracers[RHO])));
+            if (tracer)
+                max_dye = psmax(max(abs(*tracers[TRCR])));
+
+            // write to the diagnostic file
+            write_diagnostics(time);
+
+            // compute other things, if wanted
+            if (compute_stress) {
+                stresses(u, v, w, *Hprime, *temp1, gradient_op, grid_type,
+                        mu, time, itercount, restarting);
+            }
+            if (compute_enstrophy) {
+                enstrophy(u, v, w, *temp1, gradient_op, grid_type,
+                        time, itercount, restarting);
+            }
+
+            // Determine last plot if restarting from the dump case
+            if (restart_from_dump and itercount == 1) {
+                last_plot = restart_sequence*plot_interval;    
+                next_plot = last_plot + plot_interval;
+            }
+            // see if close to end of compute time and dump
+            check_and_dump(clock_time, real_start_time, compute_time, time, avg_write_time,
+                    plotnum, itercount, u, v, w, tracers);
+            // Change dump log file if successfully reached final time
+            successful_dump(plotnum, final_time, plot_interval);
 
             /* Write to disk if at correct time */
             if ((time - next_plot) > -1e-6*plot_interval) {
@@ -316,106 +431,6 @@ class userControl : public BaseCase {
                 write_plot_times(clock_time-t_step, avg_write_time, plot_interval,
                         plotnum, restarting, time);
             }
-            // update clocks
-            if (master()) {
-                clock_time = MPI_Wtime();
-                t_step = clock_time - step_start_time;
-            }
-
-            // Also, calculate and write out useful information
-
-            // total dissipation
-            double diss_tot = 0;
-            if (compute_dissipation) {
-                dissipation(u, v, w, *temp1, gradient_op, grid_type, Nx, Ny, Nz, mu);
-                diss_tot = pssum(sum((*temp1)*
-                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            }
-            // Energy (PE assumes density is density anomaly)
-            double ke_tot = pssum(sum(0.5*rho_0*(u*u + v*v + w*w)*
-                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            double pe_tot;
-            if (mapped) {
-                pe_tot = pssum(sum(rho_0(1+*tracers[RHO])*g*((*zgrid)(ii,jj,kk) - MinZ)*
-                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            } else {
-                pe_tot = pssum(sum(rho_0(1+*tracers[RHO])*g*(zz(kk) - MinZ)*
-                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            }
-            // max of fields
-            double max_u = psmax(max(abs(u)));
-            double max_v = psmax(max(abs(v)));
-            double max_w = psmax(max(abs(w)));
-            double max_ke = psmax(max(0.5*rho_0*(u*u + v*v + w*w)*
-                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            double max_rho = psmax(max(abs(*tracers[RHO])));
-            if (master() and itercount == 1 and !restarting) {
-                // create file for other analysis variables and write the column headers
-                FILE * analysis_file = fopen("analysis.txt","a");
-                assert(analysis_file);
-                fprintf(analysis_file,"Iter, Clock_time, Sim_time, "
-                        "Max_U, Max_V, Max_W, "
-                        "Max_KE, Total_KE, Total_PE, Total_dissipation, "
-                        "Max_density");
-                if (tracer)
-                    fprintf(analysis_file,", Max_tracer");
-                fprintf(analysis_file,"\n");
-                fclose(analysis_file);
-            }
-            if (master()) {
-                /* add to the analysis file at each time step */
-                FILE * analysis_file = fopen("analysis.txt","a");
-                assert(analysis_file);
-                fprintf(analysis_file,"%d, %.12g, %.12f, "
-                        "%.12g, %.12g, %.12g, "
-                        "%.12g, %.12g, %.12g, %.12g, "
-                        "%.12g",
-                        itercount,t_step,time,
-                        max_u,max_v,max_w,
-                        max_ke,ke_tot,pe_tot,diss_tot,
-                        max_rho);
-                if (tracer){
-                    double max_dye = psmax(max(abs(*tracers[TRCR])));
-                    fprintf(analysis_file,", %.12g",max_dye);
-                }
-                fprintf(analysis_file,"\n");
-                fclose(analysis_file);
-                /* and to the log file */
-                fprintf(stdout,"[%d] (%.4g) %.4f: "
-                        "%.4g %.4g %.4g "
-                        "%.4g %.4g %.4g %.4g "
-                        "%.4g",
-                        itercount,t_step,time,
-                        max_u,max_v,max_w,
-                        max_ke,ke_tot,pe_tot,diss_tot,
-                        max_rho);
-                if (tracer){
-                    double max_dye = psmax(max(abs(*tracers[TRCR])));
-                    fprintf(stdout," %.4g",max_dye);
-                }
-                fprintf(stdout,"\n");
-            }
-
-            // compute other things, if wanted
-            if (compute_stress) {
-                stresses(u, v, w, *Hprime, *temp1, gradient_op, grid_type,
-                        mu, time, itercount, restarting);
-            }
-            if (compute_enstrophy) {
-                enstrophy(u, v, w, *temp1, gradient_op, grid_type,
-                        time, itercount, restarting);
-            }
-
-            // Determine last plot if restarting from the dump case
-            if (restart_from_dump and itercount == 1) {
-                last_plot = restart_sequence*plot_interval;    
-                next_plot = last_plot + plot_interval;
-            }
-            // see if close to end of compute time and dump
-            check_and_dump(clock_time, real_start_time, compute_time, time, avg_write_time,
-                    plotnum, itercount, u, v, w, tracers);
-            // Change dump log file if successfully reached final time
-            successful_dump(plotnum, final_time, plot_interval);
         }
 
         // User specified variables to dump
