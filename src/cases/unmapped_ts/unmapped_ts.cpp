@@ -290,7 +290,7 @@ class dambreak : public BaseCase {
                 temp1 = alloc_array(Nx,Ny,Nz);
                 if (compute_stress) {
                     Hprime = alloc_array(Nx,Ny,1);
-                    Hprime = 0;
+                    *Hprime = 0;
                 }
                 // initialize the diagnostic files
                 initialize_diagnostics_file();
