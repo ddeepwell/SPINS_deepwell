@@ -113,8 +113,8 @@ class mapiw : public BaseCase {
         double clock_time;
 
         /* Variables for Diagnostics */
-        double max_u, max_v, max_w, max_rho;
-        double max_ke, ke_tot, pe_tot, diss_tot;
+        double max_u, max_v, max_w, max_vel, max_rho;
+        double ke_x, ke_y, ke_z, ke_tot, pe_tot, diss_tot;
 
         /* Size of domain */
         double length_x() const { return Lx; }
@@ -270,9 +270,9 @@ class mapiw : public BaseCase {
                 FILE * diagnos_file = fopen("diagnostics.txt","a");
                 assert(diagnos_file);
                 fprintf(diagnos_file,"Iter, Clock_time, Sim_time, "
-                        "Max_U, Max_V, Max_W, "
-                        "Max_KE, Total_KE, Total_PE, Total_dissipation, "
-                        "Max_density\n");
+                        "Max_U, Max_V, Max_W, Max_vel, "
+                        "KE_x, KE_y, KE_z, Total_KE, Total_PE, "
+                        "Total_dissipation, Max_density\n");
                 fclose(diagnos_file);
             }
         }
@@ -283,23 +283,23 @@ class mapiw : public BaseCase {
                 FILE * diagnos_file = fopen("diagnostics.txt","a");
                 assert(diagnos_file);
                 fprintf(diagnos_file,"%d, %.12g, %.12f, "
-                        "%.12g, %.12g, %.12g, "
                         "%.12g, %.12g, %.12g, %.12g, "
-                        "%.12g\n",
+                        "%.12g, %.12g, %.12g, %.12g, %.12g, "
+                        "%.12g, %.12g\n",
                         itercount,t_step,time,
-                        max_u,max_v,max_w,
-                        max_ke,ke_tot,pe_tot,diss_tot,
-                        max_rho);
+                        max_u,max_v,max_w,max_vel,
+                        ke_x,ke_y,ke_z,ke_tot,pe_tot,
+                        diss_tot,max_rho);
                 fclose(diagnos_file);
                 /* and to the log file */
                 fprintf(stdout,"[%d] (%.4g) %.4f: "
-                        "%.4g %.4g %.4g "
                         "%.4g %.4g %.4g %.4g "
-                        "%.4g\n",
+                        "%.4g %.4g %.4g %.4g %.4g "
+                        "%.4g %.4g\n",
                         itercount,t_step,time,
-                        max_u,max_v,max_w,
-                        max_ke,ke_tot,pe_tot,diss_tot,
-                        max_rho);
+                        max_u,max_v,max_w,max_vel,
+                        ke_x,ke_y,ke_z,ke_tot,pe_tot,
+                        diss_tot,max_rho);
             }
         }
 
@@ -310,7 +310,9 @@ class mapiw : public BaseCase {
             itercount++;
             // Set-up
             if ( itercount == 1 ) {
-                temp1 = alloc_array(Nx,Ny,Nz);
+                if (compute_enstrophy or compute_dissipation or compute_stress) {
+                    temp1 = alloc_array(Nx,Ny,Nz);
+                }
                 if (compute_stress) {
                     Hprime = alloc_array(Nx,Ny,1);
                     bottom_slope(*Hprime, *zgrid, *temp1, gradient_op, grid_type, Nx, Ny, Nz);
@@ -334,16 +336,20 @@ class mapiw : public BaseCase {
                             (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             }
             // Energy (PE assumes density is density anomaly)
-            ke_tot = pssum(sum(0.5*rho_0*(u*u + v*v + w*w)*
+            ke_x = pssum(sum(0.5*rho_0*(u*u)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            ke_y = pssum(sum(0.5*rho_0*(v*v)*
+                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            ke_z = pssum(sum(0.5*rho_0*(w*w)*
+                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            ke_tot = ke_x + ke_y + ke_z;
             pe_tot = pssum(sum(rho_0*(1+*tracers[RHO])*g*((*zgrid)(ii,jj,kk) - MinZ)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             // max of fields
             max_u = psmax(max(abs(u)));
             max_v = psmax(max(abs(v)));
             max_w = psmax(max(abs(w)));
-            max_ke = psmax(max(0.5*rho_0*(u*u + v*v + w*w)*
-                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            max_vel = psmax(max(pow(u*u + v*v + w*w,0.5)));
             max_rho = psmax(max(abs(*tracers[RHO])));
 
             // write to the diagnostic file

@@ -157,6 +157,8 @@ class userControl : public BaseCase {
                                 snprintf(filename,100,"%sx",fields[var_num].c_str());
                             }
                             write_array(deriv_var,filename,plotnum);
+                            if (master())
+                                fprintf(stdout,"Completed the write for %s.%d\n",filename,plotnum);
                         }
                         // Y derivative
                         if (deriv_y) {
@@ -171,6 +173,8 @@ class userControl : public BaseCase {
                                 snprintf(filename,100,"%sy",fields[var_num].c_str());
                             }
                             write_array(deriv_var,filename,plotnum);
+                            if (master())
+                                fprintf(stdout,"Completed the write for %s.%d\n",filename,plotnum);
                         }
                         // Z derivative
                         if (deriv_z) {
@@ -185,6 +189,8 @@ class userControl : public BaseCase {
                                 snprintf(filename,100,"%sz",fields[var_num].c_str());
                             }
                             write_array(deriv_var,filename,plotnum);
+                            if (master())
+                                fprintf(stdout,"Completed the write for %s.%d\n",filename,plotnum);
                         }
                     }
                 }
@@ -214,6 +220,8 @@ class userControl : public BaseCase {
                     double max_var = psmax(max(abs(deriv_var)));
                     if (master()) fprintf(stdout,"Max X-vorticity: %.6g\n",max_var);
                     write_array(deriv_var,"vortx",plotnum);
+                    if (master())
+                        fprintf(stdout,"Completed the write for vortx.%d\n",plotnum);
                 }
                 // Y-component of vorticity
                 if (do_vor_y) {
@@ -221,6 +229,8 @@ class userControl : public BaseCase {
                     double max_var = psmax(max(abs(deriv_var)));
                     if (master()) fprintf(stdout,"Max Y-vorticity: %.6g\n",max_var);
                     write_array(deriv_var,"vorty",plotnum);
+                    if (master())
+                        fprintf(stdout,"Completed the write for vorty.%d\n",plotnum);
                 }
                 // Z-component of vorticity
                 if (do_vor_z) {
@@ -228,6 +238,8 @@ class userControl : public BaseCase {
                     double max_var = psmax(max(abs(deriv_var)));
                     if (master()) fprintf(stdout,"Max Z-vorticity: %.6g\n",max_var);
                     write_array(deriv_var,"vortz",plotnum);
+                    if (master())
+                        fprintf(stdout,"Completed the write for vortz.%d\n",plotnum);
                 }
 
                 // Calculate Enstrophy
@@ -240,6 +252,8 @@ class userControl : public BaseCase {
                                 (*get_quad_z())(kk)*deriv_var));
                     if (master()) fprintf(stdout,"Total Enstrophy: %.6g\n",tot_enst);
                     write_array(deriv_var,"enst",plotnum);
+                    if (master())
+                        fprintf(stdout,"Completed the write for enst.%d\n",plotnum);
                 }
                 // Calculate Viscous dissipation
                 if ( do_dissipation ) {
@@ -252,6 +266,8 @@ class userControl : public BaseCase {
                                 (*get_quad_z())(kk)*deriv_var));
                     if (master()) fprintf(stdout,"Total Dissipation: %.6g\n",tot_diss);
                     write_array(deriv_var,"diss",plotnum);
+                    if (master())
+                        fprintf(stdout,"Completed the write for diss.%d\n",plotnum);
                 }
             }
         }
