@@ -315,7 +315,7 @@ class userControl : public BaseCase {
                 fprintf(stdout,"[%d] (%.4g) %.4f: "
                         "%.4g %.4g %.4g %.4g "
                         "%.4g %.4g %.4g %.4g %.4g "
-                        "%.4g %.4g\n",
+                        "%.4g %.4g",
                         itercount,t_step,time,
                         max_u,max_v,max_w,max_vel,
                         ke_x,ke_y,ke_z,ke_tot,pe_tot,
