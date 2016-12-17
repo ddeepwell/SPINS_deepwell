@@ -12,6 +12,6 @@ As features are finalized they will be merged into the master repository, but in
 
 To add this repository as a branch to your own SPINS installation, the following series of commands should work.
 
-    git remote add deepwell https://github.com/ddeepwel/SPINS_deepwell.git (“git remote -v” should now list vortex as one of the remotes.)
+    git remote add deepwell https://github.com/ddeepwel/SPINS_deepwell.git (“git remote -v” should now list deepwell as one of the remotes.)
     git fetch deepwell
     git checkout -b deepwell deepwell/Deepwell
