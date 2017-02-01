@@ -514,6 +514,41 @@ void BaseCase::enstrophy(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DT
     }
 }
 
+// append a diagnostic to string for printing into diagnostic file
+template <class T> void BaseCase::add_diagnostic(const string str, const T val,
+        string & header, string & line) {
+    // append to the header
+    header.append(str + ", ");
+    // append to the line of values
+    ostringstream oss;
+    oss.precision(12);
+    oss << scientific << val;
+    line.append(oss.str() + ", ");
+}
+template void BaseCase::add_diagnostic<int>(const string str, const int val,
+        string & header, string & line);
+template void BaseCase::add_diagnostic<double>(const string str, const double val,
+        string & header, string & line);
+
+// write the diagnostic file
+void BaseCase::write_diagnostics(string header, string line,
+        int itercount, bool restarting) {
+    // remove last two elements (comma and space)
+    string clean_header = header.substr(0, header.size()-2);
+    string clean_line   =   line.substr(0,   line.size()-2);
+    // open file
+    FILE * diagnos_file = fopen("diagnostics.txt","a");
+    assert(diagnos_file);
+    // print header
+    if (itercount == 1 and !restarting) {
+        fprintf(diagnos_file,"%s\n",clean_header.c_str());
+    }
+    // print the line of values
+    fprintf(diagnos_file, "%s\n", clean_line.c_str());
+    // Close file
+    fclose(diagnos_file);
+}
+
 // parse expansion types from spins.conf
 void get_boundary_conditions(const string xgrid_type, const string ygrid_type,
         const string zgrid_type, DIMTYPE & intype_x, DIMTYPE & intype_y, DIMTYPE & intype_z) {

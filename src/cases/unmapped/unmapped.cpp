@@ -106,10 +106,6 @@ class dambreak : public BaseCase {
         double t_step;
         double clock_time;
 
-        /* Variables for Diagnostics */
-        double max_u, max_v, max_w, max_vel, max_rho;
-        double ke_x, ke_y, ke_z, ke_tot, pe_tot, diss_tot;
-
         /* Size of domain */
         double length_x() const { return Lx; }
         double length_y() const { return Ly; }
@@ -226,45 +222,6 @@ class dambreak : public BaseCase {
             *tracers_f[RHO] = 0;
         }
 
-        void initialize_diagnostics_file() {
-            if (master() and !restarting) {
-                // create file for other diagnostics and write the column headers
-                FILE * diagnos_file = fopen("diagnostics.txt","a");
-                assert(diagnos_file);
-                fprintf(diagnos_file,"Iter, Clock_time, Sim_time, "
-                        "Max_U, Max_V, Max_W, Max_vel, "
-                        "KE_x, KE_y, KE_z, Total_KE, Total_PE, "
-                        "Total_dissipation, Max_density\n");
-                fclose(diagnos_file);
-            }
-        }
-
-        void write_diagnostics(double time) {
-            if (master()) {
-                /* add to the diagnostics file at each time step */
-                FILE * diagnos_file = fopen("diagnostics.txt","a");
-                assert(diagnos_file);
-                fprintf(diagnos_file,"%d, %.12g, %.12f, "
-                        "%.12g, %.12g, %.12g, %.12g, "
-                        "%.12g, %.12g, %.12g, %.12g, %.12g, "
-                        "%.12g, %.12g\n",
-                        itercount,t_step,time,
-                        max_u,max_v,max_w,max_vel,
-                        ke_x,ke_y,ke_z,ke_tot,pe_tot,
-                        diss_tot,max_rho);
-                fclose(diagnos_file);
-                /* and to the log file */
-                fprintf(stdout,"[%d] (%.4g) %.4f: "
-                        "%.4g %.4g %.4g %.4g "
-                        "%.4g %.4g %.4g %.4g %.4g "
-                        "%.4g %.4g\n",
-                        itercount,t_step,time,
-                        max_u,max_v,max_w,max_vel,
-                        ke_x,ke_y,ke_z,ke_tot,pe_tot,
-                        diss_tot,max_rho);
-            }
-        }
-
         /* Basic analysis, to write out the field periodically */
         void analysis(double time, DTArray & u, DTArray & v, DTArray & w,
                 vector<DTArray *> & tracers, DTArray & pressure) {
@@ -279,8 +236,6 @@ class dambreak : public BaseCase {
                     Hprime = alloc_array(Nx,Ny,1);
                     *Hprime = 0;
                 }
-                // initialize the diagnostic files
-                initialize_diagnostics_file();
             }
             // update clocks
             if (master()) {
@@ -288,34 +243,61 @@ class dambreak : public BaseCase {
                 t_step = clock_time - step_start_time;
             }
 
-            /* Calculate and write out useful information */
+            /* Calculate and write to disk diagnostics */
 
             // total dissipation
-            diss_tot = 0;
+            double diss_tot = 0;
             if (compute_dissipation) {
                 dissipation(u, v, w, *temp1, gradient_op, grid_type, Nx, Ny, Nz, mu);
                 diss_tot = pssum(sum((*temp1)*
                             (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             }
             // Energy (PE assumes density is density anomaly)
-            ke_x = pssum(sum(0.5*rho_0*(u*u)*
+            double ke_x = pssum(sum(0.5*rho_0*(u*u)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            ke_y = pssum(sum(0.5*rho_0*(v*v)*
+            double ke_y = pssum(sum(0.5*rho_0*(v*v)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            ke_z = pssum(sum(0.5*rho_0*(w*w)*
+            double ke_z = pssum(sum(0.5*rho_0*(w*w)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            ke_tot = ke_x + ke_y + ke_z;
-            pe_tot = pssum(sum(rho_0*(1+*tracers[RHO])*g*(zz(kk) - MinZ)*
+            double ke_tot = ke_x + ke_y + ke_z;
+            double pe_tot = pssum(sum(rho_0*(1+*tracers[RHO])*g*(zz(kk) - MinZ)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             // max of fields
-            max_u = psmax(max(abs(u)));
-            max_v = psmax(max(abs(v)));
-            max_w = psmax(max(abs(w)));
-            max_vel = psmax(max(pow(u*u + v*v + w*w,0.5)));
-            max_rho = psmax(max(abs(*tracers[RHO])));
+            double max_u = psmax(max(abs(u)));
+            double max_v = psmax(max(abs(v)));
+            double max_w = psmax(max(abs(w)));
+            double max_vel = psmax(max(pow(u*u + v*v + w*w,0.5)));
+            double max_rho = psmax(max(abs(*tracers[RHO])));
 
-            // write to the diagnostic file
-            write_diagnostics(time);
+            if (master()) {
+                // add diagnostics to buffers
+                string header, line;
+                add_diagnostic("Iter", itercount,       header, line);
+                add_diagnostic("Clock_time", t_step,    header, line);
+                add_diagnostic("Sim_time", time,        header, line);
+                add_diagnostic("Max_u", max_u,          header, line);
+                add_diagnostic("Max_w", max_w,          header, line);
+                add_diagnostic("Max_vel", max_vel,      header, line);
+                add_diagnostic("Max_density", max_rho,  header, line);
+                add_diagnostic("KE_x", ke_x,            header, line);
+                add_diagnostic("KE_z", ke_z,            header, line);
+                add_diagnostic("Total_KE", ke_tot,      header, line);
+                add_diagnostic("Total_PE", pe_tot,      header, line);
+                if (Ny > 1 || rot_f != 0) {
+                    add_diagnostic("Max_v", max_v,      header, line);
+                    add_diagnostic("KE_y", ke_y,        header, line);
+                }
+                if (compute_dissipation)
+                    add_diagnostic("Total_dissipation", diss_tot, header, line);
+
+                // Write to file
+                write_diagnostics(header, line, itercount, restarting);
+                // and to the log file
+                fprintf(stdout,"[%d] (%.4g) %.4f: "
+                        "%.4g %.4g %.4g %.4g\n",
+                        itercount,t_step,time,
+                        max_u,max_v,max_w,max_rho);
+            }
 
             // compute other things, if wanted
             if (compute_stress) {

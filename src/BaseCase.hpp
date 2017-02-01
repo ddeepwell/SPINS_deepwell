@@ -187,6 +187,9 @@ class BaseCase {
       void enstrophy(TArrayn::DTArray & u, TArrayn::DTArray & v, TArrayn::DTArray & w,
               TArrayn::DTArray & temp, TArrayn::Grad * gradient_op, const string * grid_type,
               double time, int itercount, bool restarting);
+      template <class T> void add_diagnostic(const string str, const T val,
+              string & header, string & line);
+      void write_diagnostics(string header, string line, int itercount, bool restarting);
 
       // Generate an automatic grid for unmapped cases
       virtual void automatic_grid(double MinX, double MinY, double MinZ, 
