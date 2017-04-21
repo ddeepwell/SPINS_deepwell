@@ -4,8 +4,8 @@
 /* ------------------ Top matter --------------------- */
 
 // Required headers
-#include "../BaseCase.hpp"      // contains default class
-#include "../Options.hpp"       // config-file parser
+#include "../../BaseCase.hpp"      // contains default class
+#include "../../Options.hpp"       // config-file parser
 #include <random/normal.h>      // Blitz random number generator
 
 using namespace ranlib;
@@ -85,6 +85,10 @@ bool compute_enstrophy;     // Compute Enstrophy?
 bool compute_dissipation;   // Compute dissipation?
 int itercount = 0;          // Iteration counter
 
+// diagnostic parameters
+double init_rho_max;        // Maximum initial density
+double init_rho_min;        // Minimum initial density
+
 /* ------------------ Derived parameters --------------------- */
 
 // Flow speed
@@ -116,10 +120,6 @@ class mapiw : public BaseCase {
         // variables for timing steps
         double t_step;
         double clock_time;
-
-        /* Variables for Diagnostics */
-        double max_u, max_v, max_w, max_vel, max_rho, max_dye;
-        double ke_x, ke_y, ke_z, ke_tot, pe_tot, diss_tot;
 
         /* Size of domain */
         double length_x() const { return Lx; }
@@ -270,7 +270,7 @@ class mapiw : public BaseCase {
 
 
                 // Write the arrays
-                write_array(rho,"rho",plotnum); 
+                write_array(rho,"rho",plotnum);
                 write_array(dye,"tracer",plotnum); 
             }
         }
@@ -284,45 +284,6 @@ class mapiw : public BaseCase {
             w_f = -g*(*tracers[RHO]);   // tracer[RHO] = rho/rho_0
             *tracers_f[RHO] = 0;
             *tracers_f[TRCR] = 0;
-        }
-
-        void initialize_diagnostics_file() {
-            if (master() and !restarting) {
-                // create file for other diagnostics and write the column headers
-                FILE * diagnos_file = fopen("diagnostics.txt","a");
-                assert(diagnos_file);
-                fprintf(diagnos_file,"Iter, Clock_time, Sim_time, "
-                        "Max_U, Max_V, Max_W, Max_vel, "
-                        "KE_x, KE_y, KE_z, Total_KE, Total_PE, "
-                        "Total_dissipation, Max_density, Max_tracer\n");
-                fclose(diagnos_file);
-            }
-        }
-
-        void write_diagnostics(double time) {
-            if (master()) {
-                /* add to the diagnostics file at each time step */
-                FILE * diagnos_file = fopen("diagnostics.txt","a");
-                assert(diagnos_file);
-                fprintf(diagnos_file,"%d, %.12g, %.12f, "
-                        "%.12g, %.12g, %.12g, %.12g, "
-                        "%.12g, %.12g, %.12g, %.12g, %.12g, "
-                        "%.12g, %.12g, %.12g\n",
-                        itercount,t_step,time,
-                        max_u,max_v,max_w,max_vel,
-                        ke_x,ke_y,ke_z,ke_tot,pe_tot,
-                        diss_tot,max_rho,max_dye);
-                fclose(diagnos_file);
-                /* and to the log file */
-                fprintf(stdout,"[%d] (%.4g) %.4f: "
-                        "%.4g %.4g %.4g %.4g "
-                        "%.4g %.4g %.4g %.4g %.4g "
-                        "%.4g %.4g %.4g\n",
-                        itercount,t_step,time,
-                        max_u,max_v,max_w,max_vel,
-                        ke_x,ke_y,ke_z,ke_tot,pe_tot,
-                        diss_tot,max_rho,max_dye);
-            }
         }
 
         /* Basic analysis, to write out the field periodically */
@@ -339,8 +300,6 @@ class mapiw : public BaseCase {
                     Hprime = alloc_array(Nx,Ny,1);
                     bottom_slope(*Hprime, *zgrid, *temp1, gradient_op, grid_type, Nx, Ny, Nz);
                 }
-                // initialize the diagnostic files
-                initialize_diagnostics_file();
             }
             // update clocks
             if (master()) {
@@ -348,35 +307,92 @@ class mapiw : public BaseCase {
                 t_step = clock_time - step_start_time;
             }
 
-            /* Calculate and write out useful information */
+            /* Calculate and write diagnostics */
 
             // total dissipation
-            diss_tot = 0;
+            double diss_tot = 0;
+            double max_diss = 0;
             if (compute_dissipation) {
                 dissipation(u, v, w, *temp1, gradient_op, grid_type, Nx, Ny, Nz, mu);
                 diss_tot = pssum(sum((*temp1)*
                             (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+                max_diss = psmax(max(*temp1));
             }
             // Energy (PE assumes density is density anomaly)
-            ke_x = pssum(sum(0.5*rho_0*(u*u)*
+            double ke_x = pssum(sum(0.5*rho_0*(u*u)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            ke_y = pssum(sum(0.5*rho_0*(v*v)*
+            double ke_y = pssum(sum(0.5*rho_0*(v*v)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            ke_z = pssum(sum(0.5*rho_0*(w*w)*
+            double ke_z = pssum(sum(0.5*rho_0*(w*w)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
-            ke_tot = ke_x + ke_y + ke_z;
-            pe_tot = pssum(sum(rho_0*(1+*tracers[RHO])*g*((*zgrid)(ii,jj,kk) - MinZ)*
+            double ke_tot = ke_x + ke_y + ke_z;
+            double pe_tot = pssum(sum(rho_0*(1+*tracers[RHO])*g*((*zgrid)(ii,jj,kk) - MinZ)*
                         (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
             // max of fields
-            max_u = psmax(max(abs(u)));
-            max_v = psmax(max(abs(v)));
-            max_w = psmax(max(abs(w)));
-            max_vel = psmax(max(pow(u*u + v*v + w*w,0.5)));
-            max_rho = psmax(max(abs(*tracers[RHO])));
-            max_dye = psmax(max(abs(*tracers[TRCR])));
+            double max_u = psmax(max(abs(u)));
+            double max_v = psmax(max(abs(v)));
+            double max_w = psmax(max(abs(w)));
+            double max_vel = psmax(max(pow(u*u + v*v + w*w,0.5)));
+            double max_rho = psmax(max(abs(*tracers[RHO])));
+            double max_dye = psmax(max(abs(*tracers[TRCR])));
+            // total mass
+            double mass = pssum(sum(rho_0*(1+(*tracers[RHO]))*
+                        (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk)));
+            // volume outside initial density limits
+            if (init_rho_max == 123456789.0 and itercount == 1)
+                init_rho_max = psmax(max(*tracers[RHO]));
+            if (init_rho_min == 123456789.0 and itercount == 1)
+                init_rho_min = psmin(min(*tracers[RHO]));
+            double rho_over  = pssum(sum(where(*tracers[RHO] > init_rho_max,
+                            //0.5*rho_0*(u*u + v*v + w*w)/ke_tot*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk), 0)));
+            double rho_under = pssum(sum(where(*tracers[RHO] < init_rho_min,
+                            //0.5*rho_0*(u*u + v*v + w*w)/ke_tot*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk), 0)));
+            double rho_over_extra  = pssum(sum(where(*tracers[RHO] > 1.00001*init_rho_max,
+                            //0.5*rho_0*(u*u + v*v + w*w)/ke_tot*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk), 0)));
+            double rho_under_extra = pssum(sum(
+                        where(*tracers[RHO] < min(1.00001*init_rho_min, 0.99999*init_rho_min),
+                            //0.5*rho_0*(u*u + v*v + w*w)/ke_tot*
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk), 0)));
 
-            // write to the diagnostic file
-            write_diagnostics(time);
+            if (master()) {
+                // add diagnostics to buffers
+                string header, line;
+                add_diagnostic("Iter", itercount,       header, line);
+                add_diagnostic("Clock_time", t_step,    header, line);
+                add_diagnostic("Time", time,            header, line);
+                add_diagnostic("Max_u", max_u,          header, line);
+                add_diagnostic("Max_w", max_w,          header, line);
+                add_diagnostic("Max_vel", max_vel,      header, line);
+                add_diagnostic("Max_tracer", max_dye,   header, line);
+                add_diagnostic("Max_density", max_rho,  header, line);
+                add_diagnostic("Mass", mass,            header, line);
+                add_diagnostic("Rho_over_vol",  rho_over,               header, line);
+                add_diagnostic("Rho_under_vol", rho_under,              header, line);
+                add_diagnostic("Rho_over_extra_vol",  rho_over_extra,   header, line);
+                add_diagnostic("Rho_under_extra_vol", rho_under_extra,  header, line);
+                add_diagnostic("KE_x", ke_x,        header, line);
+                add_diagnostic("KE_z", ke_z,        header, line);
+                add_diagnostic("PE_tot", pe_tot,    header, line);
+                if (Ny > 1 || rot_f != 0) {
+                    add_diagnostic("Max_v", max_v,  header, line);
+                    add_diagnostic("KE_y", ke_y,    header, line);
+                }
+                if (compute_dissipation) {
+                    add_diagnostic("Diss_tot", diss_tot, header, line);
+                    add_diagnostic("Max_diss", max_diss, header, line);
+                }
+
+                // Write to file
+                write_diagnostics(header, line, itercount, restarting);
+                // and to the log file
+                fprintf(stdout,"[%d] (%.4g) %.4f: "
+                        "%.4g %.4g %.4g %.4g\n",
+                        itercount,t_step,time,
+                        max_u,max_v,max_w,max_rho);
+            }
 
             // compute other things, if wanted
             if (compute_stress) {
@@ -526,6 +542,10 @@ int main(int argc, char ** argv) {
     add_option("compute_stress",&compute_stress,true,"Calculate the top and bottom stresses?");
     add_option("compute_enstrophy",&compute_enstrophy,true,"Calculate enstrophy?");
     add_option("compute_dissipation",&compute_dissipation,true,"Calculate dissipation?");
+
+    option_category("Diagnostic parameters");
+    add_option("init_rho_max",&init_rho_max,123456789.0,"Initial density max");
+    add_option("init_rho_min",&init_rho_min,123456789.0,"Initial density min");
 
     option_category("Filter options");
     add_option("f_cutoff",&f_cutoff,0.6,"Filter cut-off frequency");
