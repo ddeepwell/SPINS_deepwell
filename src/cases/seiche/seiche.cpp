@@ -4,8 +4,8 @@
 /* ------------------ Top matter --------------------- */
 
 // Required headers
-#include "../BaseCase.hpp"      // contains default class
-#include "../Options.hpp"       // config-file parser
+#include "../../BaseCase.hpp"      // contains default class
+#include "../../Options.hpp"       // config-file parser
 #include <random/normal.h>      // Blitz random number generator
 
 using namespace ranlib;
@@ -41,6 +41,10 @@ double delta_rho;           // change in density (kg/L)
 double h_halfwidth;         // pycnocline half-width (m)
 double eta_0;               // amplitude of seiche (m)
 double z_0;                 // average height of seiche (m)
+
+// Diagnostic parameters
+double rho_upper;           // value of the higher density isopycnal
+double rho_lower;           // value of the lower density isopycnal
 
 // Temporal parameters
 double final_time;          // Final time (s)
@@ -101,7 +105,7 @@ class dambreak : public BaseCase {
         double clock_time;
 
         /* Variables for Diagnostics */
-        double max_u, max_v, max_w, max_vel, max_rho;
+        double max_u, max_v, max_w, max_vel, max_rho, area_between;
         double ke_x, ke_y, ke_z, ke_tot, pe_tot, diss_tot;
 
         /* Size of domain */
@@ -221,7 +225,7 @@ class dambreak : public BaseCase {
                 assert(diagnos_file);
                 fprintf(diagnos_file,"Iter, Clock_time, Sim_time, "
                         "Max_U, Max_V, Max_W, Max_vel, "
-                        "KE_x, KE_y, KE_z, Total_KE, Total_PE, "
+                        "KE_x, KE_y, KE_z, Total_KE, Total_PE, Area_between"
                         "Total_dissipation, Max_density\n");
                 fclose(diagnos_file);
             }
@@ -234,11 +238,11 @@ class dambreak : public BaseCase {
                 assert(diagnos_file);
                 fprintf(diagnos_file,"%d, %.12g, %.12f, "
                         "%.12g, %.12g, %.12g, %.12g, "
-                        "%.12g, %.12g, %.12g, %.12g, %.12g, "
+                        "%.12g, %.12g, %.12g, %.12g, %.12g, %.12g,"
                         "%.12g, %.12g\n",
                         itercount,t_step,time,
                         max_u,max_v,max_w,max_vel,
-                        ke_x,ke_y,ke_z,ke_tot,pe_tot,
+                        ke_x,ke_y,ke_z,ke_tot,pe_tot,area_between,
                         diss_tot,max_rho);
                 fclose(diagnos_file);
                 /* and to the log file */
@@ -301,6 +305,9 @@ class dambreak : public BaseCase {
             max_w = psmax(max(abs(w)));
             max_vel = psmax(max(pow(u*u + v*v + w*w,0.5)));
             max_rho = psmax(max(abs(*tracers[RHO])));
+            // area between two isopycnals
+            area_between  = pssum(sum(where(*tracers[RHO] < rho_upper and *tracers[RHO] > rho_lower,
+                            (*get_quad_x())(ii)*(*get_quad_y())(jj)*(*get_quad_z())(kk), 0)));
 
             // write to the diagnostic file
             write_diagnostics(time);
@@ -442,6 +449,9 @@ int main(int argc, char ** argv) {
     add_option("compute_stress",&compute_stress,false,"Calculate the top and bottom stresses?");
     add_option("compute_enstrophy",&compute_enstrophy,true,"Calculate enstrophy?");
     add_option("compute_dissipation",&compute_dissipation,true,"Calculate dissipation?");
+    option_category("Diagnostic options");
+    add_option("rho_lower",&rho_lower,"isopycnal value");
+    add_option("rho_upper",&rho_upper,"isopycnal value");
 
     option_category("Filter options");
     add_option("f_cutoff",&f_cutoff,0.6,"Filter cut-off frequency");

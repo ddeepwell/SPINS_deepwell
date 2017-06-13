@@ -275,8 +275,7 @@ class mapiw : public BaseCase {
                 hill = hill_height*exp(-pow((xx(ii)-hill_centre)/hill_width,2));
                 //dye = 0.5*(1.0-tanh((zz(kk) - (hill(ii)+dye_thickness+MinZ))/dye_halfwidth));
                 dye = 0.5*(1.0-tanh(((*zgrid)(ii,jj,kk) - (hill(ii)+dye_thickness+MinZ))/dye_halfwidth));
-                dye *= 0.5*(1.0-tanh(((*zgrid)(ii,jj,kk)-dye_end)/dye_xwidth));
-
+                dye *= 0.5*(1.0-tanh(((*xgrid)(ii,jj,kk)-dye_end)/dye_xwidth));
 
                 // Write the arrays
                 write_array(rho,"rho",plotnum);
