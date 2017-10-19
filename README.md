@@ -1,4 +1,4 @@
-This repository is designed to serve as a branch of the master SPINS repository (https://belize.math.uwaterloo.ca/mediawiki/index.php/SPINS, or clone from http://belize.math.uwaterloo.ca/~csubich/spins.git).
+This repository is designed to serve as a branch of the master SPINS repository (https://wiki.math.uwaterloo.ca/fluidswiki/index.php?title=SPINS, or clone from http://belize.math.uwaterloo.ca/~csubich/spins.git).
 
 This branch provides some development of SPINS. Primary additions are:
 
